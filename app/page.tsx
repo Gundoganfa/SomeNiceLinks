@@ -6,13 +6,23 @@ import { LinkGrid } from './components/LinkGrid'
 import { AddLinkModal } from './components/AddLinkModal'
 import { Plus, Download, Upload, Github, Globe } from 'lucide-react'
 
+interface Link {
+  id: number
+  title: string
+  url: string
+  description: string
+  icon: string
+  category: string
+  customColor?: string
+}
+
 export default function Home() {
   const [showAddModal, setShowAddModal] = useState(false)
-  const [links, setLinks] = useState([])
+  const [links, setLinks] = useState<Link[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [draggedColor, setDraggedColor] = useState<string | null>(null)
   
-  const defaultLinks = [
+  const defaultLinks: Link[] = [
     {
       id: 1,
       title: 'GitHub',
@@ -79,7 +89,7 @@ export default function Home() {
   ]
 
   // localStorage'a kaydetme fonksiyonu
-  const saveToLocalStorage = (newLinks: any[]) => {
+  const saveToLocalStorage = (newLinks: Link[]) => {
     try {
       localStorage.setItem('someNiceLinks', JSON.stringify(newLinks))
     } catch (error) {
@@ -92,23 +102,22 @@ export default function Home() {
     try {
       const savedLinks = localStorage.getItem('someNiceLinks')
       if (savedLinks) {
-        const existingLinks = JSON.parse(savedLinks)
+        const existingLinks: Link[] = JSON.parse(savedLinks)
         
         // Yeni default linkleri kontrol et ve eksikleri ekle
-        const existingUrls = existingLinks.map((link: any) => link.url)
+        const existingUrls = existingLinks.map((link: Link) => link.url)
         const newLinksToAdd = defaultLinks.filter(defaultLink => 
           !existingUrls.includes(defaultLink.url)
         )
         
         if (newLinksToAdd.length > 0) {
           // Yeni linkleri mevcut linklere ekle
-          const updatedLinks = [...existingLinks, ...newLinksToAdd.map(link => ({
+          const updatedLinks: Link[] = [...existingLinks, ...newLinksToAdd.map(link => ({
             ...link,
             id: Date.now() + Math.random() // Unique ID
           }))]
           setLinks(updatedLinks)
           saveToLocalStorage(updatedLinks)
-          console.log(`${newLinksToAdd.length} adet yeni default link eklendi!`)
         } else {
           setLinks(existingLinks)
         }
@@ -123,7 +132,7 @@ export default function Home() {
     }
   }, [])
 
-  const addLink = (newLink: any) => {
+  const addLink = (newLink: Omit<Link, 'id'>) => {
     const newLinks = [...links, { ...newLink, id: Date.now() }]
     setLinks(newLinks)
     saveToLocalStorage(newLinks)
@@ -131,7 +140,7 @@ export default function Home() {
   }
 
   const deleteLink = (id: number) => {
-    const newLinks = links.filter((link: any) => link.id !== id)
+    const newLinks = links.filter((link: Link) => link.id !== id)
     setLinks(newLinks)
     saveToLocalStorage(newLinks)
   }
@@ -145,25 +154,20 @@ export default function Home() {
   }
 
   const changeColor = (id: number, color: string) => {
-    console.log('changeColor called:', { id, color, isEmpty: color === '' })
-    
-    const newLinks = links.map((link: any) => {
+    const newLinks = links.map((link: Link) => {
       if (link.id === id) {
         const updatedLink = { ...link }
         if (color === '') {
           // Rengi sil - customColor field'ını tamamen kaldır
           delete updatedLink.customColor
-          console.log('Removed customColor from link:', link.title)
         } else {
           updatedLink.customColor = color
-          console.log('Set customColor for link:', link.title, 'to:', color)
         }
         return updatedLink
       }
       return link
     })
     
-    console.log('Updated links:', newLinks.find((l: any) => l.id === id))
     setLinks(newLinks)
     saveToLocalStorage(newLinks)
   }
@@ -198,7 +202,7 @@ export default function Home() {
         const jsonData = JSON.parse(e.target?.result as string)
         if (Array.isArray(jsonData)) {
           // ID'leri yeniden oluştur (çakışmayı önlemek için)
-          const importedLinks = jsonData.map(link => ({
+          const importedLinks: Link[] = jsonData.map((link: any) => ({
             ...link,
             id: Date.now() + Math.random()
           }))
