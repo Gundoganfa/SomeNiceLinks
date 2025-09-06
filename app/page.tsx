@@ -30,7 +30,6 @@ export default function Home() {
       description: 'Kod geliştirme platformu',
       icon: 'github',
       category: 'Geliştirme'
-      // customColor yok = şeffaf
     },
     {
       id: 2,
@@ -39,7 +38,6 @@ export default function Home() {
       description: 'Frontend deployment',
       icon: 'globe',
       category: 'Hosting'
-      // customColor yok = şeffaf
     },
     {
       id: 3,
@@ -48,7 +46,6 @@ export default function Home() {
       description: 'Eğlenirken öğrenin',
       icon: 'code',
       category: 'Eğitim'
-      // customColor yok = şeffaf
     },
     {
       id: 4,
@@ -57,7 +54,6 @@ export default function Home() {
       description: 'Biraz araştırın',
       icon: 'globe',
       category: 'Araştırma'
-      // customColor yok = şeffaf
     },
     {
       id: 5,
@@ -66,7 +62,6 @@ export default function Home() {
       description: 'Unutamadık',
       icon: 'database',
       category: 'Araştırma'
-      // customColor yok = şeffaf
     },
     {
       id: 6,
@@ -75,7 +70,6 @@ export default function Home() {
       description: 'deneme bir model',
       icon: 'cpu',
       category: 'Araçlar'
-      // customColor yok = şeffaf
     },
     {
       id: 7,
@@ -84,7 +78,6 @@ export default function Home() {
       description: 'Coğrafi veri indirme aracı',
       icon: 'globe',
       category: 'Araçlar'
-      // customColor yok = şeffaf
     }
   ]
 
@@ -130,7 +123,7 @@ export default function Home() {
       console.error('localStorage okuma hatası:', error)
       setLinks(defaultLinks)
     }
-  }, [])
+  }, [defaultLinks])
 
   const addLink = (newLink: Omit<Link, 'id'>) => {
     const newLinks = [...links, { ...newLink, id: Date.now() }]
