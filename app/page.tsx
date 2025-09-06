@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { FinancialData } from './components/FinancialData'
 import { LinkGrid } from './components/LinkGrid'
 import { AddLinkModal } from './components/AddLinkModal'
-import { Plus, Download, Upload, Github, Globe } from 'lucide-react'
+import { Plus, Download, Upload, RotateCcw, Github, Globe } from 'lucide-react'
 
 interface Link {
   id: number
@@ -97,23 +97,8 @@ export default function Home() {
       if (savedLinks) {
         const existingLinks: Link[] = JSON.parse(savedLinks)
         
-        // Yeni default linkleri kontrol et ve eksikleri ekle
-        const existingUrls = existingLinks.map((link: Link) => link.url)
-        const newLinksToAdd = defaultLinks.filter(defaultLink => 
-          !existingUrls.includes(defaultLink.url)
-        )
-        
-        if (newLinksToAdd.length > 0) {
-          // Yeni linkleri mevcut linklere ekle
-          const updatedLinks: Link[] = [...existingLinks, ...newLinksToAdd.map(link => ({
-            ...link,
-            id: Date.now() + Math.random() // Unique ID
-          }))]
-          setLinks(updatedLinks)
-          saveToLocalStorage(updatedLinks)
-        } else {
-          setLinks(existingLinks)
-        }
+        // localStorage'da veri varsa onu kullan, default kontrolü yapma
+        setLinks(existingLinks)
       } else {
         // İlk kez açılıyorsa varsayılan linkler
         setLinks(defaultLinks)
@@ -123,7 +108,7 @@ export default function Home() {
       console.error('localStorage okuma hatası:', error)
       setLinks(defaultLinks)
     }
-  }, [defaultLinks])
+  }, [])
 
   const addLink = (newLink: Omit<Link, 'id'>) => {
     const newLinks = [...links, { ...newLink, id: Date.now() }]
@@ -218,6 +203,15 @@ export default function Home() {
     }
   }
 
+  // Varsayılan linkleri yükle (mevcut linkleri sil)
+  const loadDefaults = () => {
+    if (confirm('Bu işlem mevcut tüm linkleri silip varsayılan linkleri yükleyecek. Emin misiniz?')) {
+      setLinks(defaultLinks)
+      saveToLocalStorage(defaultLinks)
+      alert(`${defaultLinks.length} adet varsayılan link yüklendi!`)
+    }
+  }
+
   return (
     <div className="min-h-screen p-4 lg:p-6">
       <div className="max-w-7xl mx-auto">
@@ -228,7 +222,7 @@ export default function Home() {
               SomeNice Links
             </h1>
             <div className="flex items-center gap-3">
-              {/* Export/Import Buttons */}
+              {/* Export/Import/Reset Buttons */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={exportLinks}
@@ -246,6 +240,15 @@ export default function Home() {
                 >
                   <Upload size={16} />
                   Import
+                </button>
+                
+                <button
+                  onClick={loadDefaults}
+                  className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors duration-200"
+                  title="Varsayılan Linkleri Yükle (Mevcut Linkleri Siler)"
+                >
+                  <RotateCcw size={16} />
+                  Varsayılanlar
                 </button>
                 
                 {/* Hidden file input */}

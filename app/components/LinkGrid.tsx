@@ -254,18 +254,18 @@ export function LinkGrid({ links, onDelete, onReorder, onColorChange, draggedCol
                 Link
               </div>
               
-              {/* Delete button - only visible on hover */}
-              {hoveredCard === link.id && draggedItem === null && colorDropTarget === null && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDelete(link.id)
-                  }}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-red-500/30 rounded"
-                >
-                  <Trash2 className="w-4 h-4 text-red-400" />
-                </button>
-              )}
+              {/* Delete button - always visible on hover */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  console.log('Delete button clicked for link ID:', link.id)
+                  onDelete(link.id)
+                }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-red-500/30 rounded"
+                title="Linki Sil"
+              >
+                <Trash2 className="w-4 h-4 text-red-400" />
+              </button>
             </div>
             
             {/* Drop zone indicator */}
