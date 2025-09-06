@@ -66,7 +66,7 @@ export default function Home() {
     {
       id: 6,
       title: 'Havayolu Değerleme',
-      url: 'https://havayoludegerle.vercel.app/',
+      url: 'https://havayolu-degerleme.vercel.app/',
       description: 'deneme bir model',
       icon: 'cpu',
       category: 'Araçlar'
