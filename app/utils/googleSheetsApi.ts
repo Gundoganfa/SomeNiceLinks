@@ -1,4 +1,6 @@
 // Google Sheets Finance verilerini çekme
+import { getLogEnabled } from './financialApi'
+
 export interface GoogleSheetsFinanceData {
   symbol: string
   name: string
@@ -14,7 +16,7 @@ export async function getGoogleSheetsFinanceData(): Promise<GoogleSheetsFinanceD
     const sheetName = 'Finance' // Finance sayfası
     const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${sheetName}`
     
-    console.log('Google Sheets verisi çekiliyor:', csvUrl)
+    if (getLogEnabled()) console.log('Google Sheets verisi çekiliyor:', csvUrl)
     
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 saniye timeout
@@ -33,7 +35,7 @@ export async function getGoogleSheetsFinanceData(): Promise<GoogleSheetsFinanceD
     }
     
     const csvText = await response.text()
-    console.log('Google Sheets CSV verisi:', csvText.substring(0, 500) + '...')
+    if (getLogEnabled()) console.log('Google Sheets CSV verisi:', csvText.substring(0, 500) + '...')
     
     // CSV'yi parse etme
     const lines = csvText.split('\n')
@@ -67,7 +69,7 @@ export async function getGoogleSheetsFinanceData(): Promise<GoogleSheetsFinanceD
       }
     }
     
-    console.log('Google Sheets parse edilen veri:', financeData)
+    if (getLogEnabled()) console.log('Google Sheets parse edilen veri:', financeData)
     return financeData
     
   } catch (error) {

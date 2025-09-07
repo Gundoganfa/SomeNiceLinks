@@ -1,6 +1,28 @@
 // Finansal API servisleri
 import { ReactNode } from 'react'
-import { getGoogleSheetsFinanceData } from './googleSheetsApi'
+
+// Global flag for financial data logging (set to true to enable debug logs)
+export let financialDataLogEnable = false
+
+// Function to get current log status (for googleSheetsApi)
+export const getLogEnabled = () => financialDataLogEnable
+
+// Browser console kontrolü (global olarak erişilebilir)
+if (typeof window !== 'undefined') {
+  (window as any).enableFinancialLogs = () => {
+    financialDataLogEnable = true
+    console.log('✅ Financial data logs ENABLED')
+  }
+  
+  (window as any).disableFinancialLogs = () => {
+    financialDataLogEnable = false
+    console.log('❌ Financial data logs DISABLED')
+  }
+  
+  (window as any).showLogStatus = () => {
+    console.log(`📊 Financial logs: ${financialDataLogEnable ? 'ENABLED' : 'DISABLED'}`)
+  }
+}
 
 export interface FinancialDataItem {
   symbol: string
@@ -73,12 +95,13 @@ export async function getBitcoinPrice() {
 // BIST hisseleri için Google Sheets verisi
 export async function getBistData() {
   try {
-    console.log('Google Sheets\'ten finansal veriler çekiliyor...')
+    if (financialDataLogEnable) console.log('Google Sheets\'ten finansal veriler çekiliyor...')
     
+    const { getGoogleSheetsFinanceData } = await import('./googleSheetsApi')
     const googleSheetsData = await getGoogleSheetsFinanceData()
     
     if (googleSheetsData && googleSheetsData.length > 0) {
-      console.log('Google Sheets verisi başarıyla alındı:', googleSheetsData)
+      if (financialDataLogEnable) console.log('Google Sheets verisi başarıyla alındı:', googleSheetsData)
       
       // Google Sheets verisini bizim format'a çeviriyoruz
       return googleSheetsData.map(item => ({
@@ -105,7 +128,7 @@ export async function getBistData() {
 // XU100 verisi (getBistData'dan optimize edilmiş)
 export async function getXU100FromBistData(bistData: any[]) {
   try {
-    console.log('BIST verileri XU100 arama için:', bistData)
+    if (financialDataLogEnable) console.log('BIST verileri XU100 arama için:', bistData)
     
     // BIST verilerinden XU100'ü bul (A5'te olduğunu biliyoruz)
     const xu100Data = bistData.find(item => 
@@ -117,13 +140,13 @@ export async function getXU100FromBistData(bistData: any[]) {
     )
     
     if (xu100Data) {
-      console.log('XU100 verisi BIST verileri içinden alındı (A5):', xu100Data)
+      if (financialDataLogEnable) console.log('XU100 verisi BIST verileri içinden alındı (A5):', xu100Data)
       return {
         value: xu100Data.price,
         change: xu100Data.change
       }
     } else {
-      console.log('XU100 bulunamadı, mevcut semboller:', bistData.map(item => item.symbol))
+      if (financialDataLogEnable) console.log('XU100 bulunamadı, mevcut semboller:', bistData.map(item => item.symbol))
       // Fallback olarak direkt Google Sheets'ten XU100 alalım
       return {
         value: 10729.49, // Fallback değer

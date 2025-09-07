@@ -53,7 +53,7 @@ interface LinkGridProps {
   links: Link[]
   onDelete: (id: string) => void
   onReorder: (dragIndex: number, hoverIndex: number) => void
-  onColorChange: (id: string, color: string) => void // 'default' veya gradient string
+  onColorChange: (id: string, color: string) => void | Promise<void> // 'default' veya gradient string
   draggedColor: string | null
 }
 
