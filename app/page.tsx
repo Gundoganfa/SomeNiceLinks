@@ -1,5 +1,13 @@
 'use client'
 
+/** Alias'ınına göre DÜZENLE:
+ *  - @ -> src ise: '@/lib/database.types'
+ *  - @ -> project root ise: '@/src/lib/database.types'
+ */
+import type { Database } from '@/src/lib/database.types'
+type LinkInsert = Database['public']['Tables']['links']['Insert']
+type LinkRow    = Database['public']['Tables']['links']['Row']
+
 import React, {
   useCallback,
   useEffect,
@@ -7,8 +15,18 @@ import React, {
   useRef,
   useState,
 } from 'react'
-import { SignedIn, SignedOut, SignInButton, UserButton, useSession, useUser } from '@clerk/nextjs'
+import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  UserButton,
+  useSession,
+  useUser,
+} from '@clerk/nextjs'
+
+// Var olan singleton client'ını kullanıyoruz
 import { getSupabaseClient, setAuthTokenGetter } from './utils/supabase'
+
 import { FinancialData } from './components/FinancialData'
 import { LinkGrid } from './components/LinkGrid'
 import { AddLinkModal } from './components/AddLinkModal'
@@ -35,6 +53,7 @@ export interface Link {
   icon: string
   category: string
   customColor?: string
+  sortOrder?: number
 }
 
 type NewLink = Omit<Link, 'id'>
@@ -133,7 +152,6 @@ const saveToStorage = (arr: Link[]) => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(arr))
   } catch (err) {
-    // quota veya private mode hataları
     console.error('localStorage write error:', err)
   }
 }
@@ -174,22 +192,17 @@ const sanitizeImportedLinks = (json: unknown): Link[] | null => {
   if (!Array.isArray(json)) return null
   const cleaned: Link[] = []
   for (const raw of json) {
-    const title = typeof raw?.title === 'string' ? raw.title : ''
-    const url = typeof raw?.url === 'string' ? raw.url : ''
+    const title = typeof (raw as any)?.title === 'string' ? (raw as any).title : ''
+    const url = typeof (raw as any)?.url === 'string' ? (raw as any).url : ''
     if (!title || !isValidUrl(url)) continue
     cleaned.push({
       id: crypto.randomUUID(),
       title,
       url,
-      description:
-        typeof raw?.description === 'string' ? raw.description : '',
-      icon: typeof raw?.icon === 'string' ? raw.icon : 'globe',
-      category:
-        typeof raw?.category === 'string' ? raw.category : 'Genel',
-      customColor:
-        typeof raw?.customColor === 'string'
-          ? raw.customColor
-          : undefined,
+      description: typeof (raw as any)?.description === 'string' ? (raw as any).description : '',
+      icon: typeof (raw as any)?.icon === 'string' ? (raw as any).icon : 'globe',
+      category: typeof (raw as any)?.category === 'string' ? (raw as any).category : 'Genel',
+      customColor: typeof (raw as any)?.customColor === 'string' ? (raw as any).customColor : undefined,
     })
   }
   return cleaned
@@ -302,9 +315,13 @@ export default function Home() {
   // Auth hooks
   const { session } = useSession()
   const { isSignedIn, user } = useUser()
+  const userId = user?.id
 
   // Initialize single Supabase client
   const supabase = getSupabaseClient()
+  if (!supabase) {
+    console.error('Supabase client missing (env değişkenlerini kontrol et).')
+  }
 
   // Update auth token getter when session changes
   useEffect(() => {
@@ -328,7 +345,9 @@ export default function Home() {
   const [links, setLinks] = useState<Link[]>([])
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<string>('Hepsi')
-  const [backgroundTheme, setBackgroundTheme] = useState<string>(BACKGROUND_THEMES[0].class)
+  const [backgroundTheme, setBackgroundTheme] = useState<string>(
+    BACKGROUND_THEMES[0].class,
+  )
 
   // Import options
   const [mergeImport, setMergeImport] = useState(true)
@@ -336,7 +355,7 @@ export default function Home() {
   // Confirm dialogs
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
   const [confirmClearOpen, setConfirmClearOpen] = useState(false)
-  
+
   // Conflict resolution
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
   const [cloudLinksConflict, setCloudLinksConflict] = useState<Link[]>([])
@@ -347,7 +366,6 @@ export default function Home() {
   const pushToast = useCallback((kind: ToastKind, text: string) => {
     const id = crypto.randomUUID()
     setToasts((prev) => [...prev, { id, kind, text }])
-    // auto dismiss
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
     }, 2800)
@@ -366,7 +384,7 @@ export default function Home() {
       setLinks(seeded)
       saveToStorage(seeded)
     }
-    
+
     // Load background theme
     try {
       const savedTheme = localStorage.getItem('backgroundTheme')
@@ -402,7 +420,10 @@ export default function Home() {
   /* ------ click outside settings ------ */
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+      if (
+        settingsRef.current &&
+        !settingsRef.current.contains(event.target as Node)
+      ) {
         setShowSettings(false)
       }
     }
@@ -414,51 +435,56 @@ export default function Home() {
 
   /* ------ cloud data loading ------ */
   useEffect(() => {
-    if (!isSignedIn || !supabase) return
+    if (!isSignedIn || !supabase || !userId) return
 
     const loadCloudData = async () => {
       try {
         const { data, error } = await supabase
           .from('links')
           .select('*')
-          .order('updated_at', { ascending: false })
+          .eq('owner_id', userId) // sadece kullanıcıya ait kayıtlar
+          .order('sort_order', { ascending: true }) // şemanda 'updated_at' yoksa
 
-        if (!error && Array.isArray(data)) {
-          // Map Supabase data to our Link interface
-          const cloudLinks: Link[] = data.map((item: any) => ({
-            id: item.id,
-            title: item.title,
-            url: item.url,
-            description: item.description || '',
-            icon: item.icon || 'globe',
-            category: item.category || 'Genel',
-            customColor: item.custom_color || undefined,
-          }))
-          
-          // Get current local links
-          const currentLocalLinks = links.length > 0 ? links : (loadFromStorage() || [])
-          
-          // Check for conflicts
-          if (currentLocalLinks.length > 0 && cloudLinks.length > 0) {
-            if (!areLinksEqual(currentLocalLinks, cloudLinks)) {
-              // Conflict detected - ask user what to do
-              setLocalLinksConflict(currentLocalLinks)
-              setCloudLinksConflict(cloudLinks)
-              setConflictModalOpen(true)
-              return // Don't auto-load, wait for user choice
-            }
-          }
-          
-          // No conflict or one of them is empty - auto load cloud
-          setLinks(cloudLinks)
-          saveToStorage(cloudLinks)
-          
-          if (cloudLinks.length > 0) {
-            pushToast('success', `${cloudLinks.length} bulut linki yüklendi.`)
-          }
-        } else if (error) {
+        if (error) {
           console.error('Supabase error:', error)
           pushToast('error', 'Bulut verisi alınamadı.')
+          return
+        }
+
+        const rows: LinkRow[] = (data ?? []) as LinkRow[]
+
+        // Map Supabase data to our Link interface
+        const cloudLinks: Link[] = rows.map((item) => ({
+          id: item.id,
+          title: item.title,
+          url: item.url,
+          description: item.description ?? '',
+          icon: item.icon ?? 'globe',
+          category: item.category ?? 'Genel',
+          customColor: item.custom_color ?? undefined,
+          sortOrder: item.sort_order ?? 0,
+        }))
+
+        // Mevcut yerel linkler
+        const currentLocalLinks =
+          links.length > 0 ? links : loadFromStorage() || []
+
+        // Çakışma kontrolü
+        if (currentLocalLinks.length > 0 && cloudLinks.length > 0) {
+          if (!areLinksEqual(currentLocalLinks, cloudLinks)) {
+            setLocalLinksConflict(currentLocalLinks)
+            setCloudLinksConflict(cloudLinks)
+            setConflictModalOpen(true)
+            return // kararı bekle
+          }
+        }
+
+        // Çakışma yoksa direkt bulutu yükle
+        setLinks(cloudLinks)
+        saveToStorage(cloudLinks)
+
+        if (cloudLinks.length > 0) {
+          pushToast('success', `${cloudLinks.length} bulut linki yüklendi.`)
         }
       } catch (error) {
         console.error('Cloud loading error:', error)
@@ -467,7 +493,8 @@ export default function Home() {
     }
 
     loadCloudData()
-  }, [isSignedIn, supabase])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSignedIn, supabase, userId]) // 'links'i eklemiyoruz; sonsuz döngü olmasın
 
   /* ------ derived: categories, filters ------ */
   const categories = useMemo(() => {
@@ -499,14 +526,14 @@ export default function Home() {
   )
 
   /* ------ Conflict Resolution Utils ------ */
-  
+
   const areLinksEqual = (links1: Link[], links2: Link[]): boolean => {
     if (links1.length !== links2.length) return false
-    
-    // Sort by URL for comparison
+
+    // URL'e göre sırala ve karşılaştır
     const sorted1 = [...links1].sort((a, b) => a.url.localeCompare(b.url))
     const sorted2 = [...links2].sort((a, b) => a.url.localeCompare(b.url))
-    
+
     return sorted1.every((link1, index) => {
       const link2 = sorted2[index]
       return (
@@ -519,88 +546,91 @@ export default function Home() {
       )
     })
   }
-  
+
   const mergeLinks = (localLinks: Link[], cloudLinks: Link[]): Link[] => {
     const mergedMap = new Map<string, Link>()
-    
-    // Add all local links first
-    localLinks.forEach(link => {
+
+    // önce yereller
+    localLinks.forEach((link) => {
       mergedMap.set(link.url, link)
     })
-    
-    // Add cloud links, keeping cloud version if URL exists
-    cloudLinks.forEach(link => {
+
+    // aynı URL varsa bulut versiyonunu tercih et
+    cloudLinks.forEach((link) => {
       mergedMap.set(link.url, link)
     })
-    
+
     return Array.from(mergedMap.values())
   }
-  
+
   const handleConflictChoice = async (choice: 'cloud' | 'local' | 'merge') => {
     const cloudLinks = cloudLinksConflict
     const localLinks = localLinksConflict
-    
+
     setConflictModalOpen(false)
-    
+
     switch (choice) {
       case 'cloud':
-        // Use cloud data
         setLinks(cloudLinks)
         saveToStorage(cloudLinks)
         pushToast('success', `${cloudLinks.length} bulut linki yüklendi.`)
         break
-        
+
       case 'local':
-        // Keep local, upload to cloud
-        if (supabase && user) {
+        if (supabase && userId) {
           try {
-            // Clear cloud data first
-            await supabase.from('links').delete().neq('owner_id', 'never_match')
-            
-            // Upload local links
-            const insertData = localLinks.map(link => ({
-              owner_id: user.id,
+            // önce bulutu temizle (sadece mevcut kullanıcı için)
+            await supabase.from('links').delete().eq('owner_id', userId)
+
+            // yerel linkleri yükle
+            const insertData: LinkInsert[] = localLinks.map((link, index) => ({
+              owner_id: userId,
               title: link.title,
               url: link.url,
-              description: link.description,
-              icon: link.icon,
-              category: link.category,
-              custom_color: link.customColor || null,
+              description: link.description ?? null,
+              icon: link.icon ?? null,
+              category: link.category ?? null,
+              custom_color: link.customColor ?? null,
+              sort_order: (index + 1) * 100,
             }))
-            
-            await supabase.from('links').insert(insertData)
-            pushToast('success', `${localLinks.length} yerel link buluta yüklendi.`)
+
+            const { error } = await supabase.from('links').insert(insertData as any)
+            if (error) throw error
+
+            pushToast(
+              'success',
+              `${localLinks.length} yerel link buluta yüklendi.`,
+            )
           } catch (error) {
             console.error('Local to cloud upload error:', error)
             pushToast('error', 'Yerel linkler buluta yüklenemedi.')
           }
         }
         break
-        
-      case 'merge':
-        // Merge both
+
+      case 'merge': {
         const merged = mergeLinks(localLinks, cloudLinks)
         setLinks(merged)
         saveToStorage(merged)
-        
-        // Upload merged to cloud
-        if (supabase && user) {
+
+        if (supabase && userId) {
           try {
-            // Clear cloud data first
-            await supabase.from('links').delete().neq('owner_id', 'never_match')
-            
-            // Upload merged links
-            const insertData = merged.map(link => ({
-              owner_id: user.id,
+            await supabase.from('links').delete().eq('owner_id', userId)
+
+            const insertData: LinkInsert[] = merged.map((link, index) => ({
+              owner_id: userId,
               title: link.title,
               url: link.url,
-              description: link.description,
-              icon: link.icon,
-              category: link.category,
-              custom_color: link.customColor || null,
+              description: link.description ?? null,
+              icon: link.icon ?? null,
+              category: link.category ?? null,
+              custom_color: link.customColor ?? null,
+              sort_order: (index + 1) * 100,
             }))
-            
-            await supabase.from('links').insert(insertData)
+
+            const { error } = await supabase.from('links').insert(insertData as any)
+            if (error) throw error
+
             pushToast('success', `${merged.length} birleşik link hazırlandı.`)
           } catch (error) {
             console.error('Merge upload error:', error)
@@ -608,6 +638,7 @@ export default function Home() {
           }
         }
         break
+      }
     }
   }
 
@@ -616,7 +647,7 @@ export default function Home() {
   const addLink = async (newLink: NewLink) => {
     const item: Link = { ...newLink, id: crypto.randomUUID() }
 
-    // Optimistic UI update
+    // Optimistic UI
     setLinks((prev) => {
       const next = [...prev, item]
       saveToStorage(next)
@@ -625,21 +656,28 @@ export default function Home() {
     setShowAddModal(false)
     pushToast('success', 'Yeni link eklendi.')
 
-    // If signed in, also save to cloud
-    if (isSignedIn && supabase && user) {
+    // Cloud
+    if (isSignedIn && supabase && userId) {
       try {
-        const insertData = {
-          owner_id: user.id,
-          title: newLink.title,
-          url: newLink.url,
-          description: newLink.description,
-          icon: newLink.icon,
-          category: newLink.category,
-          custom_color: newLink.customColor || null,
-        }
-        
-        const { data, error } = await supabase.from('links').insert([insertData])
-        
+        // Calculate next sort_order (new links go to the end)
+        const maxSortOrder = Math.max(...links.map(l => l.sortOrder || 0), 0)
+        const nextSortOrder = maxSortOrder + 100
+
+        const insertData: LinkInsert[] = [
+          {
+            owner_id: userId,
+            title: newLink.title,
+            url: newLink.url,
+            description: newLink.description ?? null,
+            icon: newLink.icon ?? null,
+            category: newLink.category ?? null,
+            custom_color: newLink.customColor ?? null,
+            sort_order: nextSortOrder,
+          },
+        ]
+
+        const { error } = await supabase.from('links').insert(insertData as any)
+
         if (error) {
           console.error('Supabase insert error:', error)
           pushToast('error', `Buluta yazılamadı: ${error.message}`)
@@ -654,9 +692,9 @@ export default function Home() {
   }
 
   const deleteLink = async (id: string) => {
-    const linkToDelete = links.find(l => l.id === id)
-    
-    // Optimistic UI update
+    const linkToDelete = links.find((l) => l.id === id)
+
+    // Optimistic UI
     setLinks((prev) => {
       const next = prev.filter((l) => l.id !== id)
       saveToStorage(next)
@@ -664,14 +702,15 @@ export default function Home() {
     })
     pushToast('success', 'Link silindi.')
 
-    // If signed in, also delete from cloud
-    if (isSignedIn && supabase && linkToDelete) {
+    // Cloud
+    if (isSignedIn && supabase && userId && linkToDelete) {
       try {
         const { error } = await supabase
           .from('links')
           .delete()
-          .match({ url: linkToDelete.url }) // URL-based deletion for safety
-        
+          .eq('owner_id', userId)
+          .eq('url', linkToDelete.url) // URL + owner_id daha güvenli
+
         if (error) {
           console.error('Supabase delete error:', error)
           pushToast('error', 'Buluttan silinemedi.')
@@ -687,7 +726,7 @@ export default function Home() {
 
   // Filtreli görünümde doğru reposition
   const reorderVisible = useCallback(
-    (dragIndex: number, hoverIndex: number) => {
+    async (dragIndex: number, hoverIndex: number) => {
       const from = filteredIndices[dragIndex]
       const to = filteredIndices[hoverIndex]
       if (
@@ -698,6 +737,10 @@ export default function Home() {
         to < 0
       )
         return
+
+      let reorderedLinks: Link[] = []
+
+      // Optimistic UI
       setLinks((prev) => {
         const next = [...prev]
         const [moved] = next.splice(from, 1)
@@ -705,16 +748,46 @@ export default function Home() {
         if (from < to) insert = to - 1
         next.splice(insert, 0, moved)
         saveToStorage(next)
+        reorderedLinks = next
         return next
       })
+
+      // Cloud sync - update sort_order values
+      if (isSignedIn && supabase && userId && reorderedLinks.length > 0) {
+        try {
+          // Assign new sort_order values (100, 200, 300, etc.)
+          const updates = reorderedLinks.map((link, index) => ({
+            url: link.url,
+            sort_order: (index + 1) * 100,
+          }))
+
+          // Bulk update all links with new sort_order
+          for (const update of updates) {
+            const { error } = await (supabase as any)
+              .from('links')
+              .update({ sort_order: update.sort_order })
+              .eq('owner_id', userId)
+              .eq('url', update.url)
+
+            if (error) {
+              console.error('Sort order update error:', error)
+            }
+          }
+
+          // Silent success - no toast for reordering
+        } catch (error) {
+          console.error('Reorder cloud sync error:', error)
+          pushToast('error', 'Sıralama buluta senkronize edilemedi.')
+        }
+      }
     },
-    [filteredIndices],
+    [filteredIndices, isSignedIn, supabase, userId, pushToast],
   )
 
   const changeColor = async (id: string, color: string) => {
     const normalized = color === 'default' ? '' : color
-    
-    // Optimistic UI update
+
+    // Optimistic UI
     setLinks((prev) => {
       const next = prev.map((l) => {
         if (l.id !== id) return l
@@ -727,22 +800,25 @@ export default function Home() {
       return next
     })
 
-    // If signed in, sync color change to cloud
-    if (isSignedIn && supabase && user) {
+    // Cloud
+    if (isSignedIn && supabase && userId) {
       try {
-        const linkToUpdate = links.find(l => l.id === id)
+        const linkToUpdate = links.find((l) => l.id === id)
         if (linkToUpdate) {
-          const { error } = await supabase
+          const { error } = await (supabase as any)
             .from('links')
-            .update({ 
-              custom_color: normalized || null 
-            })
-            .eq('owner_id', user.id)
-            .eq('url', linkToUpdate.url) // URL ile eşleştir (daha güvenli)
+              .update({
+                custom_color: normalized || null,
+              })
+            .eq('owner_id', userId)
+            .eq('url', linkToUpdate.url)
 
           if (error) {
             console.error('Color update sync error:', error)
-            pushToast('error', 'Renk değişikliği buluta senkronize edilemedi.')
+            pushToast(
+              'error',
+              'Renk değişikliği buluta senkronize edilemedi.',
+            )
           }
         }
       } catch (error) {
@@ -793,7 +869,7 @@ export default function Home() {
 
         if (mergeImport) {
           let mergedLinks: Link[] = []
-          
+
           setLinks((prev) => {
             // URL bazlı merge (varsa update, yoksa ekle)
             const byUrl = new Map(prev.map((l) => [l.url, l] as const))
@@ -814,41 +890,46 @@ export default function Home() {
               }
             }
             const next = Array.from(byUrl.values())
-            mergedLinks = next // Store for cloud sync
+            mergedLinks = next
             saveToStorage(next)
             return next
           })
-          
-          // If signed in, sync to cloud
-          if (isSignedIn && supabase && user) {
+
+          // Cloud sync
+          if (isSignedIn && supabase && userId) {
             try {
-              // Use the merged links
-              
-              // Clear cloud data first
-              await supabase.from('links').delete().neq('owner_id', 'never_match')
-              
-              // Upload all links to cloud
-              const insertData = mergedLinks.map(link => ({
-                owner_id: user.id,
+              await supabase.from('links').delete().eq('owner_id', userId)
+
+              const insertData: LinkInsert[] = mergedLinks.map((link) => ({
+                owner_id: userId,
                 title: link.title,
                 url: link.url,
-                description: link.description,
-                icon: link.icon,
-                category: link.category,
-                custom_color: link.customColor || null,
+                description: link.description ?? null,
+                icon: link.icon ?? null,
+                category: link.category ?? null,
+                custom_color: link.customColor ?? null,
               }))
-              
-              const { error } = await supabase.from('links').insert(insertData)
-              
+
+              const { error } = await supabase.from('links').insert(insertData as any)
+
               if (error) {
                 console.error('Cloud sync error after import:', error)
-                pushToast('success', 'Import (merge) tamam. Bulut senkronizasyonu başarısız.')
+                pushToast(
+                  'success',
+                  'Import (merge) tamam. Bulut senkronizasyonu başarısız.',
+                )
               } else {
-                pushToast('success', `${cleaned.length} link merge edildi ve buluta senkronize edildi.`)
+                pushToast(
+                  'success',
+                  `${cleaned.length} link merge edildi ve buluta senkronize edildi.`,
+                )
               }
             } catch (error) {
               console.error('Cloud sync error:', error)
-              pushToast('success', 'Import (merge) tamam. Bulut senkronizasyonu başarısız.')
+              pushToast(
+                'success',
+                'Import (merge) tamam. Bulut senkronizasyonu başarısız.',
+              )
             }
           } else {
             pushToast('success', 'Import (merge) tamam.')
@@ -861,35 +942,41 @@ export default function Home() {
           }))
           setLinks(next)
           saveToStorage(next)
-          
-          // If signed in, sync to cloud
-          if (isSignedIn && supabase && user) {
+
+          if (isSignedIn && supabase && userId) {
             try {
-              // Clear cloud data first
-              await supabase.from('links').delete().neq('owner_id', 'never_match')
-              
-              // Upload all links to cloud
-              const insertData = next.map(link => ({
-                owner_id: user.id,
+              await supabase.from('links').delete().eq('owner_id', userId)
+
+              const insertData: LinkInsert[] = next.map((link) => ({
+                owner_id: userId,
                 title: link.title,
                 url: link.url,
-                description: link.description,
-                icon: link.icon,
-                category: link.category,
-                custom_color: link.customColor || null,
+                description: link.description ?? null,
+                icon: link.icon ?? null,
+                category: link.category ?? null,
+                custom_color: link.customColor ?? null,
               }))
-              
-              const { error } = await supabase.from('links').insert(insertData)
-              
+
+              const { error } = await supabase.from('links').insert(insertData as any)
+
               if (error) {
                 console.error('Cloud sync error after import:', error)
-                pushToast('success', 'Import (replace) tamam. Bulut senkronizasyonu başarısız.')
+                pushToast(
+                  'success',
+                  'Import (replace) tamam. Bulut senkronizasyonu başarısız.',
+                )
               } else {
-                pushToast('success', `${next.length} link import edildi ve buluta senkronize edildi.`)
+                pushToast(
+                  'success',
+                  `${next.length} link import edildi ve buluta senkronize edildi.`,
+                )
               }
             } catch (error) {
               console.error('Cloud sync error:', error)
-              pushToast('success', 'Import (replace) tamam. Bulut senkronizasyonu başarısız.')
+              pushToast(
+                'success',
+                'Import (replace) tamam. Bulut senkronizasyonu başarısız.',
+              )
             }
           } else {
             pushToast('success', 'Import (replace) tamam.')
@@ -961,7 +1048,7 @@ export default function Home() {
         <div className="bg-gradient-to-br from-violet-500 to-purple-600" />
         <div className="bg-gradient-to-br from-emerald-500 to-green-600" />
         <div className="bg-gradient-to-br from-slate-500 to-gray-600" />
-        
+
         {/* Background themes */}
         <div className="bg-gradient-to-b from-slate-950 to-slate-900" />
         <div className="bg-gradient-to-b from-blue-950 to-blue-900" />
@@ -1015,7 +1102,7 @@ export default function Home() {
                   </button>
                 </SignInButton>
               </SignedOut>
-              
+
               <SignedIn>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-white/80">
@@ -1077,7 +1164,9 @@ export default function Home() {
 
                       {/* Background Theme */}
                       <div className="px-4 py-2">
-                        <div className="mb-2 text-xs text-white/60">Background Theme</div>
+                        <div className="mb-2 text-xs text-white/60">
+                          Background Theme
+                        </div>
                         <div className="grid grid-cols-2 gap-1">
                           {BACKGROUND_THEMES.map((theme) => (
                             <button
@@ -1089,8 +1178,12 @@ export default function Home() {
                                   : 'border-white/10 hover:border-white/30'
                               }`}
                             >
-                              <div className={`absolute inset-0 ${theme.class} opacity-30`} />
-                              <div className="relative z-10 text-white">{theme.name}</div>
+                              <div
+                                className={`absolute inset-0 ${theme.class} opacity-30`}
+                              />
+                              <div className="relative z-10 text-white">
+                                {theme.name}
+                              </div>
                             </button>
                           ))}
                         </div>
@@ -1162,7 +1255,7 @@ export default function Home() {
                 />
                 {query ? (
                   <button
-                    onClick={clearSearch}
+                    onClick={() => setQuery('')}
                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 opacity-70 hover:bg-white/10 hover:opacity-100"
                     aria-label="Aramayı temizle"
                   >
@@ -1184,8 +1277,11 @@ export default function Home() {
             </div>
 
             <div className="text-sm text-white/70">
-              Toplam <span className="font-semibold text-white">{links.length}</span> | Görünen{' '}
-              <span className="font-semibold text-white">{filteredLinks.length}</span>
+              Toplam{' '}
+              <span className="font-semibold text-white">{links.length}</span> | Görünen{' '}
+              <span className="font-semibold text-white">
+                {filteredLinks.length}
+              </span>
             </div>
           </div>
         </header>
@@ -1198,17 +1294,15 @@ export default function Home() {
         {/* Links & Palette */}
         <section>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-white">
-              Link Koleksiyonum
-            </h2>
-            
+            <h2 className="text-2xl font-semibold text-white">Link Koleksiyonum</h2>
+
             {/* Auth Status Info */}
             <SignedOut>
               <div className="hidden sm:block text-sm text-white/60">
                 💡 Giriş yapın, linkleriniz bulutla senkronlansın
               </div>
             </SignedOut>
-            
+
             <SignedIn>
               <div className="hidden sm:block text-sm text-white/60">
                 ☁️ Bulut senkronizasyonu aktif
@@ -1219,17 +1313,16 @@ export default function Home() {
           {/* Mobile Auth Info */}
           <SignedOut>
             <div className="mb-4 sm:hidden rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
-              <span className="font-medium">💡 İpucu:</span> Giriş yaparsanız linkleriniz tüm cihazlarınızda senkronlanır.
+              <span className="font-medium">💡 İpucu:</span> Giriş yaparsanız linkleriniz tüm
+              cihazlarınızda senkronlanır.
             </div>
           </SignedOut>
-          
+
           <div className="flex gap-6">
             {/* Color Palette - Left */}
             <div className="w-16 flex-shrink-0">
               <div className="sticky top-6">
-                <h3 className="mb-3 text-center text-xs text-white/60">
-                  Renkler
-                </h3>
+                <h3 className="mb-3 text-center text-xs text-white/60">Renkler</h3>
                 <div className="flex flex-col gap-2">
                   {GRADIENTS.map((color, idx) => (
                     <button
@@ -1282,35 +1375,39 @@ export default function Home() {
         {conflictModalOpen && (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
             <div className="w-full max-w-2xl rounded-lg border border-white/10 bg-slate-900 p-6 shadow-2xl">
-              <h3 className="mb-4 text-xl font-semibold text-white">🔄 Veri Çakışması Tespit Edildi</h3>
-              
+              <h3 className="mb-4 text-xl font-semibold text-white">
+                🔄 Veri Çakışması Tespit Edildi
+              </h3>
+
               <div className="mb-6 text-sm text-white/70">
                 Yerel ve bulut verileriniz farklı. Hangi veriyi kullanmak istiyorsunuz?
               </div>
-              
+
               <div className="mb-6 grid gap-4 sm:grid-cols-2">
                 <div className="rounded border border-white/10 bg-white/5 p-4">
                   <h4 className="mb-2 font-medium text-white">📱 Yerel Veriler</h4>
                   <p className="text-sm text-white/60">{localLinksConflict.length} link</p>
                   <p className="text-xs text-white/50">Cihazınızda kayıtlı</p>
                 </div>
-                
+
                 <div className="rounded border border-white/10 bg-white/5 p-4">
                   <h4 className="mb-2 font-medium text-white">☁️ Bulut Veriler</h4>
                   <p className="text-sm text-white/60">{cloudLinksConflict.length} link</p>
                   <p className="text-xs text-white/50">Sunucuda kayıtlı</p>
                 </div>
               </div>
-              
+
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   onClick={() => handleConflictChoice('cloud')}
                   className="flex-1 rounded-md bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700"
                 >
                   <div>☁️ Bulut Kullan</div>
-                  <div className="text-xs opacity-75">Bulut veriyi yükle, yerel veriyi sil</div>
+                  <div className="text-xs opacity-75">
+                    Bulut veriyi yükle, yerel veriyi sil
+                  </div>
                 </button>
-                
+
                 <button
                   onClick={() => handleConflictChoice('local')}
                   className="flex-1 rounded-md bg-green-600 px-4 py-3 text-sm font-medium text-white hover:bg-green-700"
@@ -1318,7 +1415,7 @@ export default function Home() {
                   <div>📱 Yerel Kullan</div>
                   <div className="text-xs opacity-75">Yerel veriyi buluta gönder</div>
                 </button>
-                
+
                 <button
                   onClick={() => handleConflictChoice('merge')}
                   className="flex-1 rounded-md bg-purple-600 px-4 py-3 text-sm font-medium text-white hover:bg-purple-700"
@@ -1327,7 +1424,7 @@ export default function Home() {
                   <div className="text-xs opacity-75">İkisini de kullan</div>
                 </button>
               </div>
-              
+
               <div className="mt-4 text-center">
                 <button
                   onClick={() => setConflictModalOpen(false)}
