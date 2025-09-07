@@ -11,6 +11,7 @@ import { LinkGrid } from './components/LinkGrid'
 import { AddLinkModal } from './components/AddLinkModal'
 import { Toasts } from './components/ui/Toast'
 import { ConfirmDialog } from './components/ui/ConfirmDialog'
+import { ConflictModal } from './components/ui/ConflictModal'
 
 export default function Home() {
   const {
@@ -31,6 +32,11 @@ export default function Home() {
     // Confirm dialogs
     confirmResetOpen,
     confirmClearOpen,
+    
+    // Conflict resolution
+    conflictModalOpen,
+    cloudLinksConflict,
+    localLinksConflict,
     
     // Toast system
     toasts,
@@ -58,6 +64,12 @@ export default function Home() {
     doResetToDefaults,
     clearAllLinks,
     doClearAllLinks,
+    
+    // Conflict resolution
+    useLocalLinks,
+    useCloudLinks,
+    mergeLinks,
+    setConflictModalOpen,
     
     // User info
     isSignedIn,
@@ -136,6 +148,17 @@ export default function Home() {
         cancelText="Vazgeç"
         onConfirm={doClearAllLinks}
         onClose={() => setConfirmClearOpen(false)}
+      />
+
+      {/* Conflict Resolution Modal */}
+      <ConflictModal
+        open={conflictModalOpen}
+        localLinks={localLinksConflict}
+        cloudLinks={cloudLinksConflict}
+        onUseLocal={useLocalLinks}
+        onUseCloud={useCloudLinks}
+        onMerge={mergeLinks}
+        onClose={() => setConflictModalOpen(false)}
       />
 
       <div className="mx-auto max-w-7xl">

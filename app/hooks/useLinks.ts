@@ -59,6 +59,142 @@ export function useLinks() {
   const closeToast = (id: string) =>
     setToasts((prev) => prev.filter((t) => t.id !== id))
 
+  // Helper function to compare links
+  const compareLinks = (local: Link[], cloud: Link[]): boolean => {
+    if (local.length !== cloud.length) return false
+    
+    // Sort both arrays by URL for comparison
+    const sortedLocal = [...local].sort((a, b) => a.url.localeCompare(b.url))
+    const sortedCloud = [...cloud].sort((a, b) => a.url.localeCompare(b.url))
+    
+    return sortedLocal.every((localLink, index) => {
+      const cloudLink = sortedCloud[index]
+      return (
+        localLink.url === cloudLink.url &&
+        localLink.title === cloudLink.title &&
+        localLink.description === cloudLink.description &&
+        localLink.category === cloudLink.category
+      )
+    })
+  }
+
+  // Helper function to upload local links to cloud
+  const uploadLocalLinksToCloud = async (localLinks: Link[]) => {
+    if (!supabase || !userId) return
+
+    try {
+      // Convert local links to database format
+      const insertData = localLinks.map((link, index) => ({
+        owner_id: userId,
+        title: link.title,
+        url: link.url,
+        description: link.description || null,
+        icon: link.icon || null,
+        category: link.category || null,
+        custom_color: link.customColor || null,
+        sort_order: index,
+        click_count: 0
+      }))
+
+      const { error } = await (supabase as any)
+        .from('links')
+        .insert(insertData)
+
+      if (error) {
+        console.error('Upload local links error:', error)
+        pushToast('error', `Yerel linkler yüklenemedi: ${error.message}`)
+        return
+      }
+
+      // Update local links with new IDs and sync to cloud
+      setLinks(localLinks)
+      saveToStorage(localLinks)
+      pushToast('success', 'Yerel linkler buluta yüklendi.')
+    } catch (error) {
+      console.error('Upload local links error:', error)
+      pushToast('error', 'Yerel linkler yüklenirken hata oluştu.')
+    }
+  }
+
+  // Load links from Supabase with conflict detection
+  const loadLinksFromSupabase = async () => {
+    if (!isSignedIn || !userId || !supabase) return
+
+    try {
+      // Get local links first
+      const localLinks = loadFromStorage() || []
+      
+      // Get cloud links
+      const { data, error } = await supabase
+        .from('links')
+        .select('*')
+        .eq('owner_id', userId)
+        .order('sort_order', { ascending: true }) as any
+
+      if (error) {
+        console.error('Supabase load error:', error)
+        pushToast('error', `Linkler yüklenemedi: ${error.message}`)
+        return
+      }
+
+      // Convert database format to app format
+      const cloudLinks: Link[] = data ? data.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        url: item.url,
+        description: item.description || '',
+        icon: item.icon || 'globe',
+        category: item.category || 'Genel',
+        customColor: item.custom_color || undefined,
+        sortOrder: item.sort_order || 0
+      })) : []
+
+      // Conflict detection
+      const hasLocalLinks = localLinks.length > 0
+      const hasCloudLinks = cloudLinks.length > 0
+
+      if (!hasLocalLinks && !hasCloudLinks) {
+        // Both empty, load defaults
+        const seeded = withIds(DEFAULT_LINKS_BASE)
+        setLinks(seeded)
+        saveToStorage(seeded)
+        return
+      }
+
+      if (!hasLocalLinks && hasCloudLinks) {
+        // Only cloud has links, use cloud
+        setLinks(cloudLinks)
+        saveToStorage(cloudLinks)
+        pushToast('success', 'Bulut linkler yüklendi.')
+        return
+      }
+
+      if (hasLocalLinks && !hasCloudLinks) {
+        // Only local has links, upload to cloud and use local
+        await uploadLocalLinksToCloud(localLinks)
+        return
+      }
+
+      // Both have links - check if they're different
+      const areLinksEqual = compareLinks(localLinks, cloudLinks)
+      
+      if (areLinksEqual) {
+        // Same links, use cloud (more authoritative)
+        setLinks(cloudLinks)
+        saveToStorage(cloudLinks)
+        pushToast('success', 'Linkler senkronize.')
+      } else {
+        // Different links - show conflict modal
+        setLocalLinksConflict(localLinks)
+        setCloudLinksConflict(cloudLinks)
+        setConflictModalOpen(true)
+      }
+    } catch (error) {
+      console.error('Load links error:', error)
+      pushToast('error', 'Linkler yüklenirken hata oluştu.')
+    }
+  }
+
   // Update auth token getter when session changes
   useEffect(() => {
     if (session) {
@@ -70,20 +206,26 @@ export function useLinks() {
     }
   }, [session])
 
-  // Initial load
+  // Load links when user signs in
   useEffect(() => {
-    // Load links
-    const existing = loadFromStorage()
-    
-    if (existing && existing.length) {
-      setLinks(existing)
+    if (isSignedIn && userId) {
+      loadLinksFromSupabase()
     } else {
-      const seeded = withIds(DEFAULT_LINKS_BASE)
-      setLinks(seeded)
-      saveToStorage(seeded)
+      // Load from localStorage if not signed in
+      const existing = loadFromStorage()
+      
+      if (existing && existing.length) {
+        setLinks(existing)
+      } else {
+        const seeded = withIds(DEFAULT_LINKS_BASE)
+        setLinks(seeded)
+        saveToStorage(seeded)
+      }
     }
+  }, [isSignedIn, userId])
 
-    // Load background theme
+  // Load background theme on initial mount
+  useEffect(() => {
     try {
       const savedTheme = localStorage.getItem('backgroundTheme')
       if (savedTheme) {
@@ -146,27 +288,106 @@ export function useLinks() {
 
   // Actions
   const addLink = async (newLink: NewLink) => {
-    const item: Link = { ...newLink, id: crypto.randomUUID() }
+    if (!isSignedIn || !userId) {
+      pushToast('error', 'Lütfen önce giriş yapın.')
+      return
+    }
 
-    // Optimistic UI
-    setLinks((prev) => {
-      const next = [...prev, item]
-      saveToStorage(next)
-      return next
-    })
-    setShowAddModal(false)
-    pushToast('success', 'Yeni link eklendi.')
+    if (!supabase) {
+      pushToast('error', 'Veritabanı bağlantısı bulunamadı.')
+      return
+    }
 
-    // Cloud sync logic would go here if needed
+    try {
+      // Map NewLink to database format
+      const insertData: LinkInsert = {
+        owner_id: userId,
+        title: newLink.title,
+        url: newLink.url,
+        description: newLink.description || null,
+        icon: newLink.icon || null,
+        category: newLink.category || null,
+        custom_color: newLink.customColor || null,
+        sort_order: newLink.sortOrder || 0,
+        click_count: 0
+      }
+
+      const { data, error } = await (supabase as any)
+        .from('links')
+        .insert(insertData)
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Supabase insert error:', error)
+        pushToast('error', `Link eklenemedi: ${error.message}`)
+        return
+      }
+
+      if (data) {
+        // Convert database format to app format
+        const newItem: Link = {
+          id: data.id,
+          title: data.title,
+          url: data.url,
+          description: data.description || '',
+          icon: data.icon || 'globe',
+          category: data.category || 'Genel',
+          customColor: data.custom_color || undefined,
+          sortOrder: data.sort_order || 0
+        }
+
+        // Update local state
+        setLinks((prev) => {
+          const next = [...prev, newItem]
+          saveToStorage(next)
+          return next
+        })
+        
+        setShowAddModal(false)
+        pushToast('success', 'Yeni link eklendi.')
+      }
+    } catch (error) {
+      console.error('Add link error:', error)
+      pushToast('error', 'Link eklenirken hata oluştu.')
+    }
   }
 
   const deleteLink = async (id: string) => {
-    setLinks((prev) => {
-      const next = prev.filter((l) => l.id !== id)
-      saveToStorage(next)
-      return next
-    })
-    pushToast('success', 'Link silindi.')
+    if (!isSignedIn || !userId) {
+      pushToast('error', 'Lütfen önce giriş yapın.')
+      return
+    }
+
+    if (!supabase) {
+      pushToast('error', 'Veritabanı bağlantısı bulunamadı.')
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('links')
+        .delete()
+        .eq('id', id)
+        .eq('owner_id', userId) as any // Security: only delete own links
+
+      if (error) {
+        console.error('Supabase delete error:', error)
+        pushToast('error', `Link silinemedi: ${error.message}`)
+        return
+      }
+
+      // Update local state only if Supabase delete was successful
+      setLinks((prev) => {
+        const next = prev.filter((l) => l.id !== id)
+        saveToStorage(next)
+        return next
+      })
+      pushToast('success', 'Link silindi.')
+    } catch (error) {
+      console.error('Delete link error:', error)
+      pushToast('error', 'Link silinirken hata oluştu.')
+    }
   }
 
   const reorderVisible = useCallback(
@@ -182,33 +403,114 @@ export function useLinks() {
       )
         return
 
-      setLinks((prev) => {
-        const next = [...prev]
-        const [moved] = next.splice(from, 1)
-        let insert = to
-        if (from < to) insert = to - 1
-        next.splice(insert, 0, moved)
-        saveToStorage(next)
-        return next
-      })
+      if (!isSignedIn || !userId || !supabase) {
+        // If not signed in, only update local state
+        setLinks((prev) => {
+          const next = [...prev]
+          const [moved] = next.splice(from, 1)
+          let insert = to
+          if (from < to) insert = to - 1
+          next.splice(insert, 0, moved)
+          saveToStorage(next)
+          return next
+        })
+        return
+      }
+
+      // Create new order for local update
+      const newLinks = [...links]
+      const [moved] = newLinks.splice(from, 1)
+      let insert = to
+      if (from < to) insert = to - 1
+      newLinks.splice(insert, 0, moved)
+
+      try {
+        // Update sort_order for all affected links in Supabase
+        const updates = newLinks.map((link, index) => ({
+          id: link.id,
+          sort_order: index
+        }))
+
+        // Use a transaction-like approach: update all sort orders
+        const updatePromises = updates.map(({ id, sort_order }) =>
+          (supabase as any)
+            .from('links')
+            .update({ sort_order })
+            .eq('id', id)
+            .eq('owner_id', userId)
+        )
+
+        const results = await Promise.all(updatePromises)
+        
+        // Check if any update failed
+        const hasError = results.some(result => result.error)
+        if (hasError) {
+          console.error('Some reorder updates failed')
+          pushToast('error', 'Sıralama kaydedilemedi.')
+          return
+        }
+
+        // Update local state only if all Supabase updates were successful
+        setLinks(newLinks.map((link, index) => ({
+          ...link,
+          sortOrder: index
+        })))
+        saveToStorage(newLinks.map((link, index) => ({
+          ...link,
+          sortOrder: index
+        })))
+      } catch (error) {
+        console.error('Reorder error:', error)
+        pushToast('error', 'Sıralama değiştirilirken hata oluştu.')
+      }
     },
-    [filteredIndices],
+    [filteredIndices, links, isSignedIn, userId, supabase],
   )
 
   const changeColor = async (id: string, color: string) => {
     const normalized = color === 'default' ? '' : color
 
-    setLinks((prev) => {
-      const next = prev.map((l) => {
-        if (l.id !== id) return l
-        const updated = { ...l }
-        if (!normalized) delete updated.customColor
-        else updated.customColor = normalized
-        return updated
+    if (!isSignedIn || !userId) {
+      pushToast('error', 'Lütfen önce giriş yapın.')
+      return
+    }
+
+    if (!supabase) {
+      pushToast('error', 'Veritabanı bağlantısı bulunamadı.')
+      return
+    }
+
+    try {
+      const { error } = await (supabase as any)
+        .from('links')
+        .update({ 
+          custom_color: normalized || null 
+        })
+        .eq('id', id)
+        .eq('owner_id', userId) // Security: only update own links
+
+      if (error) {
+        console.error('Supabase color update error:', error)
+        pushToast('error', `Renk değiştirilemedi: ${error.message}`)
+        return
+      }
+
+      // Update local state only if Supabase update was successful
+      setLinks((prev) => {
+        const next = prev.map((l) => {
+          if (l.id !== id) return l
+          const updated = { ...l }
+          if (!normalized) delete updated.customColor
+          else updated.customColor = normalized
+          return updated
+        })
+        saveToStorage(next)
+        return next
       })
-      saveToStorage(next)
-      return next
-    })
+    } catch (error) {
+      console.error('Change color error:', error)
+      pushToast('error', 'Renk değiştirilirken hata oluştu.')
+    }
   }
 
 
@@ -330,6 +632,113 @@ export function useLinks() {
     pushToast('success', 'Tüm linkler silindi.')
   }
 
+  // Conflict resolution functions
+  const useLocalLinks = async () => {
+    if (!supabase || !userId) return
+
+    try {
+      // Clear cloud links first
+      await (supabase as any)
+        .from('links')
+        .delete()
+        .eq('owner_id', userId)
+
+      // Upload local links to cloud
+      await uploadLocalLinksToCloud(localLinksConflict)
+      
+      // Use local links
+      setLinks(localLinksConflict)
+      saveToStorage(localLinksConflict)
+      
+      // Close conflict modal
+      setConflictModalOpen(false)
+      setLocalLinksConflict([])
+      setCloudLinksConflict([])
+      
+      pushToast('success', 'Yerel linkler kullanıldı ve buluta kaydedildi.')
+    } catch (error) {
+      console.error('Use local links error:', error)
+      pushToast('error', 'Yerel linkler kaydedilemedi.')
+    }
+  }
+
+  const useCloudLinks = () => {
+    // Use cloud links
+    setLinks(cloudLinksConflict)
+    saveToStorage(cloudLinksConflict)
+    
+    // Close conflict modal
+    setConflictModalOpen(false)
+    setLocalLinksConflict([])
+    setCloudLinksConflict([])
+    
+    pushToast('success', 'Bulut linkleri kullanıldı.')
+  }
+
+  const mergeLinks = async () => {
+    if (!supabase || !userId) return
+
+    try {
+      // Merge logic: combine both sets, avoid duplicates by URL
+      const urlMap = new Map<string, Link>()
+      
+      // Add cloud links first (lower priority)
+      cloudLinksConflict.forEach(link => {
+        urlMap.set(link.url, link)
+      })
+      
+      // Add local links (higher priority - will overwrite duplicates)
+      localLinksConflict.forEach(link => {
+        urlMap.set(link.url, link)
+      })
+      
+      const mergedLinks = Array.from(urlMap.values())
+      
+      // Clear cloud links
+      await (supabase as any)
+        .from('links')
+        .delete()
+        .eq('owner_id', userId)
+
+      // Upload merged links to cloud
+      const insertData = mergedLinks.map((link, index) => ({
+        owner_id: userId,
+        title: link.title,
+        url: link.url,
+        description: link.description || null,
+        icon: link.icon || null,
+        category: link.category || null,
+        custom_color: link.customColor || null,
+        sort_order: index,
+        click_count: 0
+      }))
+
+      const { error } = await (supabase as any)
+        .from('links')
+        .insert(insertData)
+
+      if (error) {
+        console.error('Merge links error:', error)
+        pushToast('error', `Linkler birleştirilemedi: ${error.message}`)
+        return
+      }
+
+      // Use merged links
+      setLinks(mergedLinks)
+      saveToStorage(mergedLinks)
+      
+      // Close conflict modal
+      setConflictModalOpen(false)
+      setLocalLinksConflict([])
+      setCloudLinksConflict([])
+      
+      pushToast('success', `Linkler birleştirildi. Toplam ${mergedLinks.length} link.`)
+    } catch (error) {
+      console.error('Merge links error:', error)
+      pushToast('error', 'Linkler birleştirilirken hata oluştu.')
+    }
+  }
+
   return {
     // Data
     links,
@@ -381,6 +790,12 @@ export function useLinks() {
     doResetToDefaults,
     clearAllLinks,
     doClearAllLinks,
+    
+    // Conflict resolution
+    useLocalLinks,
+    useCloudLinks,
+    mergeLinks,
+    setConflictModalOpen,
     
     // User info
     isSignedIn,
