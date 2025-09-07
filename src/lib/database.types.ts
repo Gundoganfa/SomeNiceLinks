@@ -12,6 +12,7 @@
           category: string | null
           custom_color: string | null
           sort_order: number
+          click_count: number
           created_at: string
         }
         Insert: {
@@ -23,6 +24,7 @@
           category?: string | null
           custom_color?: string | null
           sort_order?: number
+          click_count?: number
         }
         Update: {
           owner_id?: string
@@ -33,6 +35,7 @@
           category?: string | null
           custom_color?: string | null
           sort_order?: number
+          click_count?: number
         }
       }
     }

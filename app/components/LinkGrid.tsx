@@ -55,6 +55,7 @@ interface LinkGridProps {
   onReorder: (dragIndex: number, hoverIndex: number) => void
   onColorChange: (id: string, color: string) => void | Promise<void> // 'default' veya gradient string
   draggedColor: string | null
+  onLinkClick?: (linkId: string) => void
 }
 
 /** Basit ikon seçici */
@@ -76,18 +77,25 @@ export function LinkGrid({
   onReorder,
   onColorChange,
   draggedColor,
+  onLinkClick,
 }: LinkGridProps) {
   const [draggedItem, setDraggedItem] = useState<number | null>(null)
   const [dragOverItem, setDragOverItem] = useState<number | null>(null)
   const [colorDropTarget, setColorDropTarget] = useState<number | null>(null)
 
-  const handleLinkClick = (url: string, e: React.MouseEvent) => {
+  const handleLinkClick = (link: Link, e: React.MouseEvent) => {
     // DnD esnasında yanlışlıkla link açılmasın
     if (colorDropTarget !== null || draggedItem !== null) {
       e.preventDefault()
       return
     }
-    window.open(url, '_blank', 'noopener,noreferrer')
+    
+    // Click tracking API'yi çağır (eğer callback verilmişse)
+    if (onLinkClick) {
+      onLinkClick(link.id)
+    }
+    
+    window.open(link.url, '_blank', 'noopener,noreferrer')
   }
 
   /** Reorder için link drag */
@@ -209,7 +217,7 @@ export function LinkGrid({
             <div
               className={`glass-effect h-full cursor-pointer rounded-xl p-4 transition-all duration-300 hover:scale-105 hover:bg-white/10 ${useGradient ? '' : 'bg-white/10'}`}
               style={cardStyle}
-              onClick={(e) => handleLinkClick(link.url, e)}
+              onClick={(e) => handleLinkClick(link, e)}
             >
               {/* Kategori etiketi */}
               <div className="absolute right-2 top-2">
@@ -231,11 +239,19 @@ export function LinkGrid({
                 {link.description}
               </p>
 
-              {/* Alt satır: Link göstergesi + Sil butonu */}
+              {/* Alt satır: Link göstergesi + Click sayısı + Sil butonu */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 text-xs text-white/70">
-                  <ExternalLink className="h-3 w-3" />
-                  Link
+                <div className="flex items-center gap-2 text-xs text-white/70">
+                  <div className="flex items-center gap-1">
+                    <ExternalLink className="h-3 w-3" />
+                    Link
+                  </div>
+                  {link.clickCount !== undefined && link.clickCount > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-green-400">
+                      <span>👆</span>
+                      <span>{link.clickCount}</span>
+                    </div>
+                  )}
                 </div>
 
                 <button

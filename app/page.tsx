@@ -54,6 +54,7 @@ export interface Link {
   category: string
   customColor?: string
   sortOrder?: number
+  clickCount?: number
 }
 
 type NewLink = Omit<Link, 'id'>
@@ -463,6 +464,7 @@ export default function Home() {
           category: item.category ?? 'Genel',
           customColor: item.custom_color ?? undefined,
           sortOrder: item.sort_order ?? 0,
+          clickCount: item.click_count ?? 0,
         }))
 
         // Mevcut yerel linkler
@@ -673,6 +675,7 @@ export default function Home() {
             category: newLink.category ?? null,
             custom_color: newLink.customColor ?? null,
             sort_order: nextSortOrder,
+            click_count: 0,
           },
         ]
 
@@ -1030,6 +1033,56 @@ export default function Home() {
     }
   }
 
+  const trackLinkClick = async (linkId: string) => {
+    // Optimistic update - click count'u local state'te artır
+    setLinks((prev) => 
+      prev.map((link) => 
+        link.id === linkId 
+          ? { ...link, clickCount: (link.clickCount || 0) + 1 }
+          : link
+      )
+    )
+
+    try {
+      const response = await fetch('/api/click-track', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ linkId }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Click tracking error:', errorData.error)
+        
+        // Hata durumunda optimistic update'i geri al
+        setLinks((prev) => 
+          prev.map((link) => 
+            link.id === linkId 
+              ? { ...link, clickCount: Math.max((link.clickCount || 1) - 1, 0) }
+              : link
+          )
+        )
+        
+        pushToast('error', 'Tıklama kaydedilemedi.')
+      }
+    } catch (error) {
+      console.error('Click tracking fetch error:', error)
+      
+      // Hata durumunda optimistic update'i geri al
+      setLinks((prev) => 
+        prev.map((link) => 
+          link.id === linkId 
+            ? { ...link, clickCount: Math.max((link.clickCount || 1) - 1, 0) }
+            : link
+        )
+      )
+      
+      pushToast('error', 'Ağ hatası: Tıklama kaydedilemedi.')
+    }
+  }
+
   /* ------ Render ------ */
   return (
     <div className={`min-h-screen ${backgroundTheme} p-4 lg:p-6 text-white`}>
@@ -1366,6 +1419,7 @@ export default function Home() {
                 onReorder={reorderVisible}
                 onColorChange={changeColor}
                 draggedColor={draggedColor}
+                onLinkClick={trackLinkClick}
               />
             </div>
           </div>
