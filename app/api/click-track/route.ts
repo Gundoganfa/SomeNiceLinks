@@ -20,34 +20,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Önce mevcut click_count değerini al
-    const { data: currentLink, error: fetchError } = await supabase
+    // 1) click_count'ı açıkça seç + .single() ile tip kesinleşsin
+    const { data: link, error: selErr } = await supabase
       .from('links')
-      .select('click_count')
+      .select('id, click_count')
       .eq('id', linkId)
       .single()
 
-    if (fetchError) {
-      console.error('Link getirme hatası:', fetchError)
+    if (selErr) {
+      console.error('Link getirme hatası:', selErr)
       return NextResponse.json(
         { error: 'Link bulunamadı' },
         { status: 404 }
       )
     }
 
-    const currentCount = currentLink?.click_count || 0
+    const currentCount = (link as any)?.click_count ?? 0
 
-    // Click count'u artır
-    const { data, error } = await supabase
+    // 2) Artır ve yine alanı seç (tip güvenli olsun)
+    const { data: updated, error: updErr } = await (supabase as any)
       .from('links')
-      .update({ 
-        click_count: currentCount + 1 
-      })
+      .update({ click_count: currentCount + 1 })
       .eq('id', linkId)
-      .select()
+      .select('id, click_count')
+      .single()
 
-    if (error) {
-      console.error('Click count güncelleme hatası:', error)
+    if (updErr) {
+      console.error('Click count güncelleme hatası:', updErr)
       return NextResponse.json(
         { error: 'Tıklama sayısı güncellenemedi' },
         { status: 500 }
@@ -56,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      newClickCount: currentCount + 1
+      newClickCount: (updated as any).click_count
     })
 
   } catch (error) {
