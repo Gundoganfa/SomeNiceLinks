@@ -1,0 +1,34 @@
+# Robots.txt for SomeNice Links
+# Allow indexing of public pages only
+
+User-agent: *
+
+# Allow public pages
+Allow: /
+
+# Disallow private user areas
+Disallow: /dashboard
+Disallow: /user/
+Disallow: /profile/
+Disallow: /api/
+Disallow: /_next/
+Disallow: /admin/
+
+# Disallow authentication pages
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /auth/
+
+# Allow static assets
+Allow: /favicon.ico
+Allow: /sitemap.xml
+Allow: /*.css
+Allow: /*.js
+Allow: /*.png
+Allow: /*.jpg
+Allow: /*.jpeg
+Allow: /*.gif
+Allow: /*.svg
+
+# Sitemap location
+Sitemap: https://somenice-links.vercel.app/sitemap.xml
