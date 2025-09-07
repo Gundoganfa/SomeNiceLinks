@@ -352,6 +352,9 @@ export default function Home() {
 
   // Import options
   const [mergeImport, setMergeImport] = useState(true)
+  
+  // Click analytics display setting
+  const [showClickCounts, setShowClickCounts] = useState(true)
 
   // Confirm dialogs
   const [confirmResetOpen, setConfirmResetOpen] = useState(false)
@@ -394,6 +397,16 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Background theme load error:', error)
+    }
+
+    // Load click counts display setting
+    try {
+      const savedClickCounts = localStorage.getItem('showClickCounts')
+      if (savedClickCounts !== null) {
+        setShowClickCounts(JSON.parse(savedClickCounts))
+      }
+    } catch (error) {
+      console.error('Click counts setting load error:', error)
     }
   }, [])
 
@@ -1033,6 +1046,17 @@ export default function Home() {
     }
   }
 
+  const toggleClickCounts = (show: boolean) => {
+    setShowClickCounts(show)
+    try {
+      localStorage.setItem('showClickCounts', JSON.stringify(show))
+      pushToast('success', show ? 'Tıklama sayıları gösteriliyor.' : 'Tıklama sayıları gizlendi.')
+    } catch (error) {
+      console.error('Click counts setting save error:', error)
+      pushToast('error', 'Ayar kaydedilemedi.')
+    }
+  }
+
   const trackLinkClick = async (linkId: string) => {
     // Optimistic update - click count'u local state'te artır
     setLinks((prev) => 
@@ -1211,6 +1235,17 @@ export default function Home() {
                           onChange={(e) => setMergeImport(e.target.checked)}
                         />
                         <span>Merge while importing</span>
+                      </label>
+
+                      {/* Click Counts Toggle */}
+                      <label className="flex w-full cursor-pointer items-center gap-3 px-4 py-2 text-sm text-white hover:bg-slate-700">
+                        <input
+                          type="checkbox"
+                          className="accent-green-600"
+                          checked={showClickCounts}
+                          onChange={(e) => toggleClickCounts(e.target.checked)}
+                        />
+                        <span>Tıklama sayılarını göster 👆</span>
                       </label>
 
                       <hr className="my-2 border-white/10" />
@@ -1420,6 +1455,7 @@ export default function Home() {
                 onColorChange={changeColor}
                 draggedColor={draggedColor}
                 onLinkClick={trackLinkClick}
+                showClickCounts={showClickCounts}
               />
             </div>
           </div>

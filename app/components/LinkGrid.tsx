@@ -56,6 +56,7 @@ interface LinkGridProps {
   onColorChange: (id: string, color: string) => void | Promise<void> // 'default' veya gradient string
   draggedColor: string | null
   onLinkClick?: (linkId: string) => void
+  showClickCounts?: boolean
 }
 
 /** Basit ikon seçici */
@@ -78,6 +79,7 @@ export function LinkGrid({
   onColorChange,
   draggedColor,
   onLinkClick,
+  showClickCounts = true,
 }: LinkGridProps) {
   const [draggedItem, setDraggedItem] = useState<number | null>(null)
   const [dragOverItem, setDragOverItem] = useState<number | null>(null)
@@ -220,10 +222,15 @@ export function LinkGrid({
               onClick={(e) => handleLinkClick(link, e)}
             >
               {/* Kategori etiketi */}
-              <div className="absolute right-2 top-2">
+              <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
                 <span className="rounded-full bg-black/30 px-2 py-1 text-xs text-white">
                   {link.category}
                 </span>
+                {showClickCounts && link.clickCount !== undefined && link.clickCount > 0 && (
+                  <span className="rounded-full bg-green-500/80 px-2 py-1 text-xs text-white font-medium">
+                    👆 {link.clickCount}
+                  </span>
+                )}
               </div>
 
               {/* Icon */}
@@ -239,19 +246,11 @@ export function LinkGrid({
                 {link.description}
               </p>
 
-              {/* Alt satır: Link göstergesi + Click sayısı + Sil butonu */}
+              {/* Alt satır: Link göstergesi + Sil butonu */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-white/70">
-                  <div className="flex items-center gap-1">
-                    <ExternalLink className="h-3 w-3" />
-                    Link
-                  </div>
-                  {link.clickCount !== undefined && link.clickCount > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-green-400">
-                      <span>👆</span>
-                      <span>{link.clickCount}</span>
-                    </div>
-                  )}
+                <div className="flex items-center gap-1 text-xs text-white/70">
+                  <ExternalLink className="h-3 w-3" />
+                  Link
                 </div>
 
                 <button
