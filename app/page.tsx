@@ -54,6 +54,19 @@ const GRADIENTS: string[] = [
   'from-slate-500 to-gray-600',
 ]
 
+const BACKGROUND_THEMES = [
+  { name: 'Dark Slate', class: 'bg-gradient-to-b from-slate-950 to-slate-900' },
+  { name: 'Dark Blue', class: 'bg-gradient-to-b from-blue-950 to-blue-900' },
+  { name: 'Dark Purple', class: 'bg-gradient-to-b from-purple-950 to-purple-900' },
+  { name: 'Dark Green', class: 'bg-gradient-to-b from-emerald-950 to-emerald-900' },
+  { name: 'Dark Red', class: 'bg-gradient-to-b from-red-950 to-red-900' },
+  { name: 'Midnight', class: 'bg-gradient-to-b from-gray-900 to-black' },
+  { name: 'Ocean', class: 'bg-gradient-to-br from-blue-900 via-blue-800 to-teal-900' },
+  { name: 'Sunset', class: 'bg-gradient-to-br from-orange-900 via-red-900 to-pink-900' },
+  { name: 'Forest', class: 'bg-gradient-to-br from-green-900 via-emerald-800 to-teal-900' },
+  { name: 'Royal', class: 'bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900' },
+]
+
 // Varsayılanlar: id’siz base; ilk yüklemede UUID atanacak.
 const DEFAULT_LINKS_BASE: NewLink[] = [
   {
@@ -295,6 +308,7 @@ export default function Home() {
   const [links, setLinks] = useState<Link[]>([])
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<string>('Hepsi')
+  const [backgroundTheme, setBackgroundTheme] = useState<string>(BACKGROUND_THEMES[0].class)
 
   // Import options
   const [mergeImport, setMergeImport] = useState(true)
@@ -318,6 +332,7 @@ export default function Home() {
 
   /* ------ initial load ------ */
   useEffect(() => {
+    // Load links
     const existing = loadFromStorage()
     if (existing && existing.length) {
       setLinks(existing)
@@ -325,6 +340,16 @@ export default function Home() {
       const seeded = withIds(DEFAULT_LINKS_BASE)
       setLinks(seeded)
       saveToStorage(seeded)
+    }
+    
+    // Load background theme
+    try {
+      const savedTheme = localStorage.getItem('backgroundTheme')
+      if (savedTheme) {
+        setBackgroundTheme(savedTheme)
+      }
+    } catch (error) {
+      console.error('Background theme load error:', error)
     }
   }, [])
 
@@ -565,11 +590,23 @@ export default function Home() {
     pushToast('success', 'Tüm linkler silindi.')
   }
 
+  const changeBackgroundTheme = (themeClass: string) => {
+    setBackgroundTheme(themeClass)
+    try {
+      localStorage.setItem('backgroundTheme', themeClass)
+      pushToast('success', 'Background tema değiştirildi.')
+    } catch (error) {
+      console.error('Background theme save error:', error)
+      pushToast('error', 'Tema kaydedilemedi.')
+    }
+  }
+
   /* ------ Render ------ */
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900 p-4 lg:p-6 text-white">
+    <div className={`min-h-screen ${backgroundTheme} p-4 lg:p-6 text-white`}>
       {/* Tailwind safelist helper for gradients (hidden) */}
       <div className="hidden">
+        {/* Link card gradients */}
         <div className="bg-gradient-to-br from-red-500 to-pink-600" />
         <div className="bg-gradient-to-br from-orange-500 to-yellow-600" />
         <div className="bg-gradient-to-br from-green-500 to-teal-600" />
@@ -582,6 +619,18 @@ export default function Home() {
         <div className="bg-gradient-to-br from-violet-500 to-purple-600" />
         <div className="bg-gradient-to-br from-emerald-500 to-green-600" />
         <div className="bg-gradient-to-br from-slate-500 to-gray-600" />
+        
+        {/* Background themes */}
+        <div className="bg-gradient-to-b from-slate-950 to-slate-900" />
+        <div className="bg-gradient-to-b from-blue-950 to-blue-900" />
+        <div className="bg-gradient-to-b from-purple-950 to-purple-900" />
+        <div className="bg-gradient-to-b from-emerald-950 to-emerald-900" />
+        <div className="bg-gradient-to-b from-red-950 to-red-900" />
+        <div className="bg-gradient-to-b from-gray-900 to-black" />
+        <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-teal-900" />
+        <div className="bg-gradient-to-br from-orange-900 via-red-900 to-pink-900" />
+        <div className="bg-gradient-to-br from-green-900 via-emerald-800 to-teal-900" />
+        <div className="bg-gradient-to-br from-purple-900 via-indigo-900 to-blue-900" />
       </div>
 
       {/* Toasts */}
@@ -628,7 +677,7 @@ export default function Home() {
                 </button>
 
                 {showSettings && (
-                  <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-lg border border-white/10 bg-slate-800 shadow-2xl">
+                  <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-white/10 bg-slate-800 shadow-2xl">
                     <div className="py-2">
                       {/* Export */}
                       <button
@@ -664,6 +713,29 @@ export default function Home() {
                         />
                         <span>Merge while importing</span>
                       </label>
+
+                      <hr className="my-2 border-white/10" />
+
+                      {/* Background Theme */}
+                      <div className="px-4 py-2">
+                        <div className="mb-2 text-xs text-white/60">Background Theme</div>
+                        <div className="grid grid-cols-2 gap-1">
+                          {BACKGROUND_THEMES.map((theme) => (
+                            <button
+                              key={theme.name}
+                              onClick={() => changeBackgroundTheme(theme.class)}
+                              className={`relative overflow-hidden rounded-md border text-xs p-2 transition-all ${
+                                backgroundTheme === theme.class
+                                  ? 'border-white/40 ring-1 ring-white/20'
+                                  : 'border-white/10 hover:border-white/30'
+                              }`}
+                            >
+                              <div className={`absolute inset-0 ${theme.class} opacity-30`} />
+                              <div className="relative z-10 text-white">{theme.name}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
                       <hr className="my-2 border-white/10" />
 
