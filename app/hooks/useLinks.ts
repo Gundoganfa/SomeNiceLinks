@@ -739,6 +739,80 @@ export function useLinks() {
     }
   }
 
+  // Check if local and cloud links are in sync
+  const checkCloudSync = async () => {
+    if (!isSignedIn || !userId) {
+      pushToast('error', 'Lütfen önce giriş yapın.')
+      return
+    }
+
+    if (!supabase) {
+      pushToast('error', 'Veritabanı bağlantısı bulunamadı.')
+      return
+    }
+
+    try {
+      // Get local links
+      const localLinks = loadFromStorage() || []
+      
+      // Get cloud links
+      const { data, error } = await supabase
+        .from('links')
+        .select('*')
+        .eq('owner_id', userId)
+        .order('sort_order', { ascending: true }) as any
+
+      if (error) {
+        console.error('Cloud sync check error:', error)
+        pushToast('error', `Bulut kontrolü başarısız: ${error.message}`)
+        return
+      }
+
+      // Convert database format to app format
+      const cloudLinks: Link[] = data ? data.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        url: item.url,
+        description: item.description || '',
+        icon: item.icon || 'globe',
+        category: item.category || 'Genel',
+        customColor: item.custom_color || undefined,
+        sortOrder: item.sort_order || 0
+      })) : []
+
+      // Compare links
+      const hasLocalLinks = localLinks.length > 0
+      const hasCloudLinks = cloudLinks.length > 0
+
+      if (!hasLocalLinks && !hasCloudLinks) {
+        pushToast('info', 'Hem yerel hem de bulutta link yok.')
+        return
+      }
+
+      if (!hasLocalLinks && hasCloudLinks) {
+        pushToast('info', `Sadece bulutta ${cloudLinks.length} link var.`)
+        return
+      }
+
+      if (hasLocalLinks && !hasCloudLinks) {
+        pushToast('info', `Sadece yerel cihazda ${localLinks.length} link var.`)
+        return
+      }
+
+      // Both have links - check if they're the same
+      const areLinksEqual = compareLinks(localLinks, cloudLinks)
+      
+      if (areLinksEqual) {
+        pushToast('success', `✅ Senkronize! Yerel: ${localLinks.length}, Bulut: ${cloudLinks.length}`)
+      } else {
+        pushToast('info', `⚠️ Farklı! Yerel: ${localLinks.length}, Bulut: ${cloudLinks.length}`)
+      }
+    } catch (error) {
+      console.error('Check cloud sync error:', error)
+      pushToast('error', 'Bulut senkronizasyonu kontrol edilemedi.')
+    }
+  }
+
   return {
     // Data
     links,
@@ -796,6 +870,7 @@ export function useLinks() {
     useCloudLinks,
     mergeLinks,
     setConflictModalOpen,
+    checkCloudSync,
     
     // User info
     isSignedIn,

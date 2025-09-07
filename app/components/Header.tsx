@@ -2,7 +2,7 @@
 
 import { useRef } from 'react'
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs'
-import { Settings, Plus, Download, Upload, RotateCcw, Trash2 } from 'lucide-react'
+import { Settings, Plus, Download, Upload, RotateCcw, Trash2, CloudCheck } from 'lucide-react'
 import { BACKGROUND_THEMES } from '../constants'
 import type { BackgroundTheme } from '../types'
 
@@ -19,6 +19,7 @@ interface HeaderProps {
   importLinks: (event: React.ChangeEvent<HTMLInputElement>) => void
   loadDefaults: () => void
   clearAllLinks: () => void
+  checkCloudSync: () => void
 }
 
 export function Header({
@@ -34,6 +35,7 @@ export function Header({
   importLinks,
   loadDefaults,
   clearAllLinks,
+  checkCloudSync,
 }: HeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const settingsRef = useRef<HTMLDivElement>(null)
@@ -181,13 +183,27 @@ export function Header({
             />
           </div>
 
+          {/* Cloud Check Button - Only for signed in users */}
+          <SignedIn>
+            <button
+              onClick={() => {
+                checkCloudSync()
+              }}
+              className="flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2 text-white transition-colors duration-200 hover:bg-slate-600"
+              title="Check if links are stored in the cloud"
+            >
+              <CloudCheck size={18} />
+              Check Cloud
+            </button>
+          </SignedIn>
+
           {/* Add Link */}
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-white transition-colors duration-200 hover:bg-blue-700"
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors duration-200 hover:bg-blue-700"
           >
-            <Plus size={20} />
-            Yeni Link
+            <Plus size={18} />
+            Add New Link
           </button>
         </div>
       </div>

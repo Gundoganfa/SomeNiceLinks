@@ -70,6 +70,7 @@ export default function Home() {
     useCloudLinks,
     mergeLinks,
     setConflictModalOpen,
+    checkCloudSync,
     
     // User info
     isSignedIn,
@@ -176,6 +177,7 @@ export default function Home() {
           importLinks={importLinks}
           loadDefaults={loadDefaults}
           clearAllLinks={clearAllLinks}
+          checkCloudSync={checkCloudSync}
         />
 
           {/* Search & Filter */}
