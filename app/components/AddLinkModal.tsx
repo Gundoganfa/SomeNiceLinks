@@ -3,9 +3,7 @@
 import { useState } from 'react'
 import { X, Github, Globe, Database, Server, Cpu, Code } from 'lucide-react'
 
-import type { Link } from '../page'
-
-type NewLink = Omit<Link, 'id'>
+import type { NewLink } from '../types'
 
 interface AddLinkModalProps {
   onAdd: (link: NewLink) => void

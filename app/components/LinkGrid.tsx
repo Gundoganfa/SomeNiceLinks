@@ -12,8 +12,8 @@ import {
   Code,
 } from 'lucide-react'
 
-/** Import Link interface from parent */
-import type { Link } from '../page'
+/** Import Link interface from types */
+import type { Link } from '../types'
 
 // Tailwind gradient classlarını inline CSS'e çevirir (JIT purge sorunu için)
 const convertTailwindToCSS = (gradientClass: string): string => {
@@ -55,8 +55,6 @@ interface LinkGridProps {
   onReorder: (dragIndex: number, hoverIndex: number) => void
   onColorChange: (id: string, color: string) => void | Promise<void> // 'default' veya gradient string
   draggedColor: string | null
-  onLinkClick?: (linkId: string) => void
-  showClickCounts?: boolean
 }
 
 /** Basit ikon seçici */
@@ -78,8 +76,6 @@ export function LinkGrid({
   onReorder,
   onColorChange,
   draggedColor,
-  onLinkClick,
-  showClickCounts = true,
 }: LinkGridProps) {
   const [draggedItem, setDraggedItem] = useState<number | null>(null)
   const [dragOverItem, setDragOverItem] = useState<number | null>(null)
@@ -90,11 +86,6 @@ export function LinkGrid({
     if (colorDropTarget !== null || draggedItem !== null) {
       e.preventDefault()
       return
-    }
-    
-    // Click tracking API'yi çağır (eğer callback verilmişse)
-    if (onLinkClick) {
-      onLinkClick(link.id)
     }
     
     window.open(link.url, '_blank', 'noopener,noreferrer')
@@ -222,15 +213,10 @@ export function LinkGrid({
               onClick={(e) => handleLinkClick(link, e)}
             >
               {/* Kategori etiketi */}
-              <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
+              <div className="absolute right-2 top-2">
                 <span className="rounded-full bg-black/30 px-2 py-1 text-xs text-white">
                   {link.category}
                 </span>
-                {showClickCounts && link.clickCount !== undefined && link.clickCount > 0 && (
-                  <span className="rounded-full bg-green-500/80 px-2 py-1 text-xs text-white font-medium">
-                    👆 {link.clickCount}
-                  </span>
-                )}
               </div>
 
               {/* Icon */}
