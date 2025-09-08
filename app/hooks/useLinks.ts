@@ -35,6 +35,9 @@ export function useLinks() {
   
   // Import options
   const [mergeImport, setMergeImport] = useState(true)
+  
+  // Click counter visibility
+  const [showClickCount, setShowClickCount] = useState(false)
 
   // Conflict resolution
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
@@ -146,7 +149,8 @@ export function useLinks() {
         icon: item.icon || 'globe',
         category: item.category || 'Genel',
         customColor: item.custom_color || undefined,
-        sortOrder: item.sort_order || 0
+        sortOrder: item.sort_order || 0,
+        clickCount: item.click_count || 0
       })) : []
 
       // Conflict detection
@@ -206,10 +210,70 @@ export function useLinks() {
     }
   }, [session])
 
+  // Sync pending deltas when online (incremental sync)
+  const syncPendingDeltas = useCallback(async () => {
+    if (!isSignedIn || !userId) return
+    
+    const pendingDeltas = JSON.parse(localStorage.getItem('pendingDeltas') || '{}')
+    const deltaKeys = Object.keys(pendingDeltas)
+    
+    if (deltaKeys.length === 0) return
+    
+    console.log('🔄 Syncing', deltaKeys.length, 'pending deltas...')
+    
+    // Try to sync each pending delta
+    const successfulSyncs = []
+    for (const key of deltaKeys) {
+      const delta = pendingDeltas[key]
+      try {
+        const response = await fetch('/api/click-track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            linkId: delta.linkId,
+            ownerID: userId,
+            url: delta.url,
+            deltaCount: delta.count // Send accumulated delta
+          }),
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          successfulSyncs.push(key)
+          console.log('✅ Synced delta', delta.count, 'for:', delta.url, '→ Server count:', result.clickCount)
+          
+          // Update local link with server count
+          setLinks((prev) => {
+            const next = prev.map((link) => 
+              (link.id === delta.linkId || link.url === delta.url)
+                ? { ...link, clickCount: result.clickCount }
+                : link
+            )
+            saveToStorage(next)
+            return next
+          })
+        }
+      } catch (error) {
+        console.warn('Failed to sync delta for:', delta.url)
+      }
+    }
+    
+    // Remove successful syncs from pending deltas
+    if (successfulSyncs.length > 0) {
+      const remainingDeltas = { ...pendingDeltas }
+      successfulSyncs.forEach(key => delete remainingDeltas[key])
+      
+      localStorage.setItem('pendingDeltas', JSON.stringify(remainingDeltas))
+      console.log('🎉 Synced', successfulSyncs.length, 'deltas,', Object.keys(remainingDeltas).length, 'remaining')
+    }
+  }, [isSignedIn, userId, setLinks])
+
   // Load links when user signs in
   useEffect(() => {
     if (isSignedIn && userId) {
       loadLinksFromSupabase()
+      // Sync any pending offline deltas
+      setTimeout(syncPendingDeltas, 1000) // Wait 1s for links to load
     } else {
       // Load from localStorage if not signed in
       const existing = loadFromStorage()
@@ -224,15 +288,45 @@ export function useLinks() {
     }
   }, [isSignedIn, userId])
 
-  // Load background theme on initial mount
+  // Auth-based online/offline state
+  const [wasSignedIn, setWasSignedIn] = useState(false)
+
+  // Auth state change detection for sync
+  useEffect(() => {
+    const currentlySignedIn = !!(isSignedIn && userId)
+    
+    // Auth state changed from offline to online
+    if (!wasSignedIn && currentlySignedIn) {
+      console.log('🔐 Auth: SIGNED IN detected (offline → online)')
+      console.log('🔄 Auto-syncing pending deltas...')
+      setTimeout(syncPendingDeltas, 500) // Small delay for auth stability
+    }
+    
+    // Auth state changed from online to offline
+    if (wasSignedIn && !currentlySignedIn) {
+      console.log('🚪 Auth: SIGNED OUT detected (online → offline)')
+      console.log('📱 Switching to local-only mode')
+    }
+    
+    setWasSignedIn(currentlySignedIn)
+  }, [isSignedIn, userId, syncPendingDeltas])
+
+  // Load preferences on initial mount
   useEffect(() => {
     try {
+      // Load background theme
       const savedTheme = localStorage.getItem('backgroundTheme')
       if (savedTheme) {
         setBackgroundTheme(savedTheme)
       }
+      
+      // Load click count visibility (default: false)
+      const savedShowClickCount = localStorage.getItem('showClickCount')
+      if (savedShowClickCount === 'true') {
+        setShowClickCount(true)
+      }
     } catch (error) {
-      console.error('Background theme load error:', error)
+      console.error('Preferences load error:', error)
     }
   }, [])
 
@@ -334,7 +428,8 @@ export function useLinks() {
           icon: data.icon || 'globe',
           category: data.category || 'Genel',
           customColor: data.custom_color || undefined,
-          sortOrder: data.sort_order || 0
+          sortOrder: data.sort_order || 0,
+          clickCount: data.click_count || 0
         }
 
         // Update local state
@@ -467,6 +562,83 @@ export function useLinks() {
     [filteredIndices, links, isSignedIn, userId, supabase],
   )
 
+  const incrementClickCount = async (linkId: string, url: string) => {
+    // 1. IMMEDIATE LOCAL UPDATE (offline-first)
+    let newClickCount = 0;
+    setLinks((prev) => {
+      const next = prev.map((link) => {
+        if (link.id === linkId) {
+          newClickCount = (link.clickCount || 0) + 1;
+          return { ...link, clickCount: newClickCount };
+        }
+        return link;
+      });
+      saveToStorage(next);
+      return next;
+    });
+
+    // 2. TRACK PENDING DELTAS (for incremental sync)
+    const trackPendingDelta = (linkId: string, url: string) => {
+      const pendingDeltas = JSON.parse(localStorage.getItem('pendingDeltas') || '{}')
+      const key = linkId || url // Use linkId as primary key, fallback to URL
+      
+      if (pendingDeltas[key]) {
+        pendingDeltas[key].count += 1
+        pendingDeltas[key].lastClick = Date.now()
+      } else {
+        pendingDeltas[key] = {
+          linkId: linkId,
+          url: url,
+          count: 1,
+          firstClick: Date.now(),
+          lastClick: Date.now()
+        }
+      }
+      
+      localStorage.setItem('pendingDeltas', JSON.stringify(pendingDeltas))
+      console.log('📊 Pending delta for', url, ':', pendingDeltas[key].count)
+    }
+
+    // 3. BACKGROUND API SYNC (online sync)
+    try {
+      const response = await fetch('/api/click-track', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          linkId: linkId,
+          ownerID: userId, // Clerk user ID
+          url: url
+        }),
+      })
+
+      console.log('🌐 Click API Response:', response)
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log('✅ Online sync successful:', result.clickCount)
+        
+        // Sync successful - update local to match server
+        setLinks((prev) => {
+          const next = prev.map((link) => 
+            link.id === linkId 
+              ? { ...link, clickCount: result.clickCount }
+              : link
+          )
+          saveToStorage(next)
+          return next
+        })
+      } else {
+        console.warn('⚠️ Online sync failed, tracking for later sync')
+        trackPendingDelta(linkId, url)
+      }
+    } catch (error) {
+      console.warn('📱 Offline mode: Click tracked locally, will sync when online')
+      trackPendingDelta(linkId, url)
+    }
+  }
+
   const changeColor = async (id: string, color: string) => {
     const normalized = color === 'default' ? '' : color
 
@@ -522,6 +694,18 @@ export function useLinks() {
     } catch (error) {
       console.error('Background theme save error:', error)
       pushToast('error', 'Tema kaydedilemedi.')
+    }
+  }
+
+  const toggleClickCount = () => {
+    const newValue = !showClickCount
+    setShowClickCount(newValue)
+    try {
+      localStorage.setItem('showClickCount', newValue.toString())
+      pushToast('success', `Click sayaçları ${newValue ? 'açıldı' : 'kapatıldı'}.`)
+    } catch (error) {
+      console.error('Click count preference save error:', error)
+      pushToast('error', 'Ayar kaydedilemedi.')
     }
   }
 
@@ -777,7 +961,8 @@ export function useLinks() {
         icon: item.icon || 'globe',
         category: item.category || 'Genel',
         customColor: item.custom_color || undefined,
-        sortOrder: item.sort_order || 0
+        sortOrder: item.sort_order || 0,
+        clickCount: item.click_count || 0
       })) : []
 
       // Compare links
@@ -827,6 +1012,7 @@ export function useLinks() {
     showSettings,
     draggedColor,
     mergeImport,
+    showClickCount,
     
     // Confirm dialogs
     confirmResetOpen,
@@ -858,12 +1044,14 @@ export function useLinks() {
     reorderVisible,
     changeColor,
     changeBackgroundTheme,
+    toggleClickCount,
     exportLinks,
     importLinks,
     loadDefaults,
     doResetToDefaults,
     clearAllLinks,
     doClearAllLinks,
+    incrementClickCount,
     
     // Conflict resolution
     useLocalLinks,

@@ -54,6 +54,8 @@ interface LinkGridProps {
   onDelete: (id: string) => void
   onReorder: (dragIndex: number, hoverIndex: number) => void
   onColorChange: (id: string, color: string) => void | Promise<void> // 'default' veya gradient string
+  onClickTrack?: (linkId: string, url: string) => void | Promise<void> // Click tracking
+  showClickCount?: boolean // Show/hide click count badges
   draggedColor: string | null
 }
 
@@ -75,6 +77,8 @@ export function LinkGrid({
   onDelete,
   onReorder,
   onColorChange,
+  onClickTrack,
+  showClickCount = false,
   draggedColor,
 }: LinkGridProps) {
   const [draggedItem, setDraggedItem] = useState<number | null>(null)
@@ -86,6 +90,11 @@ export function LinkGrid({
     if (colorDropTarget !== null || draggedItem !== null) {
       e.preventDefault()
       return
+    }
+    
+    // Track click before opening link
+    if (onClickTrack) {
+      onClickTrack(link.id, link.url)
     }
     
     window.open(link.url, '_blank', 'noopener,noreferrer')
@@ -232,11 +241,20 @@ export function LinkGrid({
                 {link.description}
               </p>
 
-              {/* Alt satır: Link göstergesi + Sil butonu */}
+              {/* Alt satır: Link göstergesi + Click count + Sil butonu */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 text-xs text-white/70">
-                  <ExternalLink className="h-3 w-3" />
-                  Link
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 text-xs text-white/70">
+                    <ExternalLink className="h-3 w-3" />
+                    Link
+                  </div>
+                  {/* Click Count Badge */}
+                  {showClickCount && link.clickCount !== undefined && link.clickCount > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full">
+                      <span className="text-amber-400">👆</span>
+                      {link.clickCount}
+                    </div>
+                  )}
                 </div>
 
                 <button

@@ -28,6 +28,7 @@ export default function Home() {
     showSettings,
     draggedColor,
     mergeImport,
+    showClickCount,
     
     // Confirm dialogs
     confirmResetOpen,
@@ -58,12 +59,14 @@ export default function Home() {
     reorderVisible,
     changeColor,
     changeBackgroundTheme,
+    toggleClickCount,
     exportLinks,
     importLinks,
     loadDefaults,
     doResetToDefaults,
     clearAllLinks,
     doClearAllLinks,
+    incrementClickCount,
     
     // Conflict resolution
     useLocalLinks,
@@ -173,6 +176,8 @@ export default function Home() {
           setMergeImport={setMergeImport}
           backgroundTheme={backgroundTheme}
           changeBackgroundTheme={changeBackgroundTheme}
+          showClickCount={showClickCount}
+          toggleClickCount={toggleClickCount}
           exportLinks={exportLinks}
           importLinks={importLinks}
           loadDefaults={loadDefaults}
@@ -237,6 +242,8 @@ export default function Home() {
                 onDelete={deleteLink}
                 onReorder={reorderVisible}
                 onColorChange={changeColor}
+                onClickTrack={incrementClickCount}
+                showClickCount={showClickCount}
                 draggedColor={draggedColor}
               />
             </div>

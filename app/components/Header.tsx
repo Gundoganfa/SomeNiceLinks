@@ -15,6 +15,8 @@ interface HeaderProps {
   setMergeImport: (merge: boolean) => void
   backgroundTheme: string
   changeBackgroundTheme: (theme: string) => void
+  showClickCount: boolean
+  toggleClickCount: () => void
   exportLinks: () => void
   importLinks: (event: React.ChangeEvent<HTMLInputElement>) => void
   loadDefaults: () => void
@@ -31,6 +33,8 @@ export function Header({
   setMergeImport,
   backgroundTheme,
   changeBackgroundTheme,
+  showClickCount,
+  toggleClickCount,
   exportLinks,
   importLinks,
   loadDefaults,
@@ -113,6 +117,20 @@ export function Header({
                       onChange={(e) => setMergeImport(e.target.checked)}
                     />
                     <span>Merge while importing</span>
+                  </label>
+
+                  {/* Click Count Toggle */}
+                  <label className="flex w-full cursor-pointer items-center gap-3 px-4 py-2 text-sm text-white hover:bg-slate-700">
+                    <input
+                      type="checkbox"
+                      className="accent-emerald-600"
+                      checked={showClickCount}
+                      onChange={(e) => {
+                        toggleClickCount()
+                        setShowSettings(false)
+                      }}
+                    />
+                    <span>👆 Click sayaçlarını göster</span>
                   </label>
 
                   <hr className="my-2 border-white/10" />
