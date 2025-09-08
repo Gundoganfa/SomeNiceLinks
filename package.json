@@ -2,6 +2,7 @@
   "name": "somenice-links",
   "version": "0.1.0",
   "private": true,
+  "license": "All Rights Reserved",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
