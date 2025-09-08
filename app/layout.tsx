@@ -90,6 +90,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <link rel="manifest" href="/manifest.json" />
           <link rel="icon" href="/favicon.ico" />
           <link rel="apple-touch-icon" href="/icon-192.png" />
+          <meta name="google-site-verification" content="9TN2Z0c9q7b5qTRjS0HUUT0QeDq-lw8WcYBobBPqtCw" />
           <meta name="theme-color" content="#2563eb" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
         </head>
