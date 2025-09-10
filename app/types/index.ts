@@ -1,4 +1,4 @@
-import type { Database } from '@/src/lib/database.types'
+import type { Database } from '@/src/types/database'
 
 // Users table types
 export type UserRow = Database['public']['Tables']['users']['Row']
