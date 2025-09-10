@@ -1,7 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Github, Globe, Database, Server, Cpu, Code } from 'lucide-react'
+import {
+  Github, Globe, Database, Server, Cpu, Code,
+  Book, FileText, Video, Image, Music,
+  X, Twitter, Linkedin, Mail, Bookmark, Star,
+  Cloud, Package, Terminal, FileCode
+} from "lucide-react"
 
 import type { NewLink } from '../types'
 
@@ -10,6 +15,7 @@ interface AddLinkModalProps {
   onClose: () => void
 }
 
+
 const iconOptions = [
   { value: 'github', label: 'GitHub', icon: <Github className="w-5 h-5" /> },
   { value: 'globe', label: 'Website', icon: <Globe className="w-5 h-5" /> },
@@ -17,17 +23,57 @@ const iconOptions = [
   { value: 'server', label: 'Server', icon: <Server className="w-5 h-5" /> },
   { value: 'cpu', label: 'System', icon: <Cpu className="w-5 h-5" /> },
   { value: 'code', label: 'Code', icon: <Code className="w-5 h-5" /> },
+
+  // içerik & kaynak türleri
+  { value: 'docs', label: 'Docs', icon: <Book className="w-5 h-5" /> },
+  { value: 'file', label: 'File', icon: <FileText className="w-5 h-5" /> },
+  { value: 'video', label: 'Video', icon: <Video className="w-5 h-5" /> },
+  { value: 'image', label: 'Image', icon: <Image className="w-5 h-5" /> },
+  { value: 'music', label: 'Music', icon: <Music className="w-5 h-5" /> },
+
+  // sosyal & iletişim
+  { value: 'twitter', label: 'Twitter', icon: <Twitter className="w-5 h-5" /> },
+  { value: 'linkedin', label: 'LinkedIn', icon: <Linkedin className="w-5 h-5" /> },
+  { value: 'mail', label: 'Mail', icon: <Mail className="w-5 h-5" /> },
+
+  // genel
+  { value: 'bookmark', label: 'Bookmark', icon: <Bookmark className="w-5 h-5" /> },
+  { value: 'favorite', label: 'Favorite', icon: <Star className="w-5 h-5" /> },
+  { value: 'cloud', label: 'Cloud', icon: <Cloud className="w-5 h-5" /> },
+  { value: 'package', label: 'Package', icon: <Package className="w-5 h-5" /> },
+  { value: 'terminal', label: 'Terminal', icon: <Terminal className="w-5 h-5" /> },
+  { value: 'snippet', label: 'Snippet', icon: <FileCode className="w-5 h-5" /> },
 ]
 
 const categoryOptions = [
+  // Teknik
   'Geliştirme',
   'Hosting',
   'Veritabanı',
   'API',
   'Araçlar',
+  'Kod Snippet',
+  'Dokümantasyon',
+
+  // İçerik & Öğrenme
   'Eğitim',
+  'Video',
+  'Müzik',
+  'Makale',
   'Araştırma',
-  'Kişisel'
+
+  // Sosyal & İletişim
+  'Sosyal',
+  'Twitter',
+  'LinkedIn',
+  'Mail',
+
+  // Kişisel / Genel
+  'Kişisel',
+  'Favori',
+  'İş',
+  'Kaynak',
+  'Diğer'
 ]
 
 export function AddLinkModal({ onAdd, onClose }: AddLinkModalProps) {

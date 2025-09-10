@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import {
-  ExternalLink,
   Trash2,
   Github,
   Globe,
@@ -217,7 +216,7 @@ export function LinkGrid({
             aria-label={link.title}
           >
             <div
-              className={`glass-effect h-full cursor-pointer rounded-xl p-4 transition-all duration-300 hover:scale-105 hover:bg-white/10 ${useGradient ? '' : 'bg-white/10'}`}
+              className={`glass-effect h-full cursor-pointer rounded-xl p-2 transition-all duration-300 hover:scale-105 hover:bg-white/10 ${useGradient ? '' : 'bg-white/10'}`}
               style={cardStyle}
               onClick={(e) => handleLinkClick(link, e)}
             >
@@ -244,10 +243,6 @@ export function LinkGrid({
               {/* Alt satır: Link göstergesi + Click count + Sil butonu */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 text-xs text-white/70">
-                    <ExternalLink className="h-3 w-3" />
-                    Link
-                  </div>
                   {/* Click Count Badge */}
                   {showClickCount && link.clickCount !== undefined && link.clickCount > 0 && (
                     <div className="flex items-center gap-1 text-xs text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full">

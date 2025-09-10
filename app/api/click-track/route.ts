@@ -36,24 +36,19 @@ export async function POST(req: Request) {
     }
 
     // Call the atomic increment function
-    let rpcResult;
-    
-    if (linkId) {
-      // Method 1: By link ID
-      console.log('🚀 Calling RPC with linkId:', linkId, 'increment:', increment);
-      rpcResult = await supabase.rpc('increment_click_count', {
-        p_link_id: linkId,
-        p_delta: increment
-      });
-    } else {
-      // Method 2: By owner ID + URL (for Clerk user ID format)
-      console.log('🚀 Calling RPC with ownerID + URL:', { ownerID, url, increment });
-      rpcResult = await supabase.rpc('increment_click_count', {
-        p_owner_id: ownerID,  // Now TEXT instead of UUID
-        p_url: url,
-        p_delta: increment
-      });
+    if (!linkId) {
+      return NextResponse.json(
+        { error: 'Link ID is required for click tracking' }, 
+        { status: 400 }
+      );
     }
+
+    // Method 1: By link ID
+    console.log('🚀 Calling RPC with linkId:', linkId, 'increment:', increment);
+    const rpcResult = await supabase.rpc('increment_click_count', {
+      p_link_id: linkId,
+      p_delta: increment
+    });
 
     console.log('📊 RPC Result:', rpcResult);
 
@@ -65,12 +60,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Return the updated click count
-    const result = rpcResult.data?.[0];
+    // Return success (RPC function returns void/undefined)
     return NextResponse.json({
       success: true,
-      linkId: result?.id,
-      clickCount: result?.click_count,
+      linkId: linkId,
+      message: 'Click count incremented successfully',
       timestamp: new Date().toISOString()
     });
 
