@@ -83,13 +83,19 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+
+  if (!clerkPublishableKey) {
+    console.warn('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY environment variable is missing')
+  }
+
   return (
-    <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
+    <ClerkProvider publishableKey={clerkPublishableKey || ''}>
       <html lang="tr">
         <head>
           <link rel="manifest" href="/manifest.json" />
           <link rel="icon" href="/favicon.ico" />
-          <link rel="apple-touch-icon" href="/icon-192.png" />
+          <link rel="apple-touch-icon" href="/favicon.ico" />
           <meta name="google-site-verification" content="9TN2Z0c9q7b5qTRjS0HUUT0QeDq-lw8WcYBobBPqtCw" />
           <meta name="theme-color" content="#2563eb" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />

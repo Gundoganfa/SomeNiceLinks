@@ -117,23 +117,23 @@ export function FinancialData() {
               {/* Value */}
               <div className="text-white font-mono text-xs leading-tight whitespace-nowrap">
                 {item.symbol.includes('BTC') ? 
-                  `$${(item.value / 1000).toFixed(0)}K` : 
+                  `$${((item.value || 0) / 1000).toFixed(0)}K` : 
                   item.symbol === 'XU100' ?
-                    item.value.toFixed(2) :
-                    item.value.toFixed(item.symbol.includes('EUR') ? 3 : 2)
+                    (item.value || 0).toFixed(2) :
+                    (item.value || 0).toFixed(item.symbol.includes('EUR') ? 3 : 2)
                 }
               </div>
               
               {/* Change */}
               <div className={`flex items-center justify-center gap-0.5 text-xs font-medium leading-tight ${
-                item.change >= 0 ? 'text-green-400' : 'text-red-400'
+                (item.change || 0) >= 0 ? 'text-green-400' : 'text-red-400'
               }`}>
-                {item.change >= 0 ? (
+                {(item.change || 0) >= 0 ? (
                   <TrendingUp className="w-3 h-3" />
                 ) : (
                   <TrendingDown className="w-3 h-3" />
                 )}
-                {item.change >= 0 ? '+' : ''}{item.change.toFixed(1)}%
+                {(item.change || 0) >= 0 ? '+' : ''}{(item.change || 0).toFixed(1)}%
               </div>
             </div>
           ))}

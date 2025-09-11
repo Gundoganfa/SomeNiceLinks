@@ -7,11 +7,14 @@ let currentTokenGetter: (() => Promise<string | null>) | null = null
 
 export const initSupabaseClient = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   // (genelde ANON key kullanılır: NEXT_PUBLIC_SUPABASE_ANON_KEY)
 
   if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase environment variables')
+    console.warn('Missing Supabase environment variables:', { 
+      hasUrl: !!supabaseUrl, 
+      hasKey: !!supabaseKey 
+    })
     return null
   }
 
