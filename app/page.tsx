@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SignedIn, SignedOut } from '@clerk/nextjs'
 import { useLinks } from './hooks/useLinks'
 import { Header } from './components/Header'
@@ -12,6 +12,7 @@ import { AddLinkModal } from './components/AddLinkModal'
 import { Toasts } from './components/ui/Toast'
 import { ConfirmDialog } from './components/ui/ConfirmDialog'
 import { ConflictModal } from './components/ui/ConflictModal'
+import { WelcomeNotification } from './components/ui/WelcomeNotification'
 
 export default function Home() {
   const {
@@ -81,6 +82,21 @@ export default function Home() {
   } = useLinks()
 
   const settingsRef = useRef<HTMLDivElement>(null)
+  const [showWelcomeNotification, setShowWelcomeNotification] = useState(false)
+  const [hasShownWelcome, setHasShownWelcome] = useState(false)
+
+  // Welcome notification kontrolü
+  useEffect(() => {
+    // Sadece ilk yüklemede ve henüz gösterilmemişse kontrol et
+    if (!hasShownWelcome && links.length < 2) {
+      const timer = setTimeout(() => {
+        setShowWelcomeNotification(true)
+        setHasShownWelcome(true)
+      }, 500) // Kısa delay - sayfa yüklendikten sonra göster
+
+      return () => clearTimeout(timer)
+    }
+  }, [links.length, hasShownWelcome])
 
   // Click outside settings
   useEffect(() => {
@@ -131,6 +147,13 @@ export default function Home() {
 
       {/* Toasts */}
       <Toasts items={toasts} onClose={closeToast} />
+
+      {/* Welcome Notification */}
+      <WelcomeNotification
+        show={showWelcomeNotification}
+        onClose={() => setShowWelcomeNotification(false)}
+        onAddLink={() => setShowAddModal(true)}
+      />
 
       {/* Confirm Reset */}
       <ConfirmDialog
