@@ -23,7 +23,7 @@ export interface Link {
 
 export type NewLink = Omit<Link, 'id'>
 
-export type ToastKind = 'success' | 'error' | 'info'
+export type ToastKind = 'success' | 'error' | 'info' | 'warning'
 export type ToastItem = { id: string; kind: ToastKind; text: string }
 
 export interface BackgroundTheme {

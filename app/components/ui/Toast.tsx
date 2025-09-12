@@ -19,6 +19,8 @@ export function Toasts({ items, onClose }: ToastsProps) {
               ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
               : t.kind === 'error'
               ? 'bg-rose-500/10 border-rose-500/30 text-rose-200'
+              : t.kind === 'warning'
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-200'
               : 'bg-slate-500/10 border-slate-500/30 text-slate-200'
           }`}
           role="status"
