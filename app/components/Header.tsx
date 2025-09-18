@@ -17,6 +17,8 @@ interface HeaderProps {
   changeBackgroundTheme: (theme: string) => void
   showClickCount: boolean
   toggleClickCount: () => void
+  lessIsMore: boolean
+  toggleLessIsMore: () => void
   exportLinks: () => void
   importLinks: (event: React.ChangeEvent<HTMLInputElement>) => void
   loadDefaults: () => void
@@ -35,6 +37,8 @@ export function Header({
   changeBackgroundTheme,
   showClickCount,
   toggleClickCount,
+  lessIsMore,
+  toggleLessIsMore,
   exportLinks,
   importLinks,
   loadDefaults,
@@ -131,6 +135,20 @@ export function Header({
                       }}
                     />
                     <span>👆 Click sayaçlarını göster</span>
+                  </label>
+
+                  {/* Less is More Toggle */}
+                  <label className="flex w-full cursor-pointer items-center gap-3 px-4 py-2 text-sm text-white hover:bg-slate-700">
+                    <input
+                      type="checkbox"
+                      className="accent-blue-600"
+                      checked={lessIsMore}
+                      onChange={(e) => {
+                        toggleLessIsMore()
+                        setShowSettings(false)
+                      }}
+                    />
+                    <span>📋 Less is More (Minimalist görünüm)</span>
                   </label>
 
                   <hr className="my-2 border-white/10" />

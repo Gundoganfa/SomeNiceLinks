@@ -55,6 +55,7 @@ interface LinkGridProps {
   onColorChange: (id: string, color: string) => void | Promise<void> // 'default' veya gradient string
   onClickTrack?: (linkId: string, url: string) => void | Promise<void> // Click tracking
   showClickCount?: boolean // Show/hide click count badges
+  lessIsMore?: boolean // Minimalist view mode
   draggedColor: string | null
 }
 
@@ -78,6 +79,7 @@ export function LinkGrid({
   onColorChange,
   onClickTrack,
   showClickCount = false,
+  lessIsMore = false,
   draggedColor,
 }: LinkGridProps) {
   const [draggedItem, setDraggedItem] = useState<number | null>(null)
@@ -216,54 +218,89 @@ export function LinkGrid({
             aria-label={link.title}
           >
             <div
-              className={`glass-effect h-full cursor-pointer rounded-xl p-2 transition-all duration-300 hover:scale-105 hover:bg-white/10 ${useGradient ? '' : 'bg-white/10'}`}
+              className={`glass-effect h-full cursor-pointer rounded-xl transition-all duration-300 hover:scale-105 hover:bg-white/10 ${
+                lessIsMore ? 'p-3' : 'p-2'
+              } ${useGradient ? '' : 'bg-white/10'}`}
               style={cardStyle}
               onClick={(e) => handleLinkClick(link, e)}
             >
-              {/* Kategori etiketi */}
-              <div className="absolute right-2 top-2">
-                <span className="rounded-full bg-black/30 px-2 py-1 text-xs text-white">
-                  {link.category}
-                </span>
-              </div>
-
-              {/* Icon */}
-              <div className="mb-3 text-white/90">{getIcon(link.icon)}</div>
-
-              {/* Başlık */}
-              <h3 className="mb-2 line-clamp-1 text-sm font-semibold text-white">
-                {link.title}
-              </h3>
-
-              {/* Açıklama */}
-              <p className="mb-3 line-clamp-2 text-xs text-white/80">
-                {link.description}
-              </p>
-
-              {/* Alt satır: Link göstergesi + Click count + Sil butonu */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {/* Click Count Badge */}
+              {lessIsMore ? (
+                // Minimalist view - only title
+                <>
+                  {/* Başlık (tek satır) */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="line-clamp-1 text-sm font-semibold text-white flex-1 pr-2">
+                      {link.title}
+                    </h3>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDelete(link.id)
+                      }}
+                      className="opacity-0 transition-opacity duration-200 hover:bg-red-500/30 group-hover:opacity-100 rounded p-1 flex-shrink-0"
+                      title="Linki Sil"
+                      aria-label={`Sil: ${link.title}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-300" />
+                    </button>
+                  </div>
+                  
+                  {/* Click Count (kompakt) */}
                   {showClickCount && link.clickCount !== undefined && link.clickCount > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full">
-                      <span className="text-amber-400">👆</span>
-                      {link.clickCount}
+                    <div className="mt-1 text-xs text-amber-300">
+                      👆 {link.clickCount}
                     </div>
                   )}
-                </div>
+                </>
+              ) : (
+                // Full view - all elements
+                <>
+                  {/* Kategori etiketi */}
+                  <div className="absolute right-2 top-2">
+                    <span className="rounded-full bg-black/30 px-2 py-1 text-xs text-white">
+                      {link.category}
+                    </span>
+                  </div>
 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDelete(link.id)
-                  }}
-                  className="opacity-0 transition-opacity duration-200 hover:bg-red-500/30 group-hover:opacity-100 rounded p-1"
-                  title="Linki Sil"
-                  aria-label={`Sil: ${link.title}`}
-                >
-                  <Trash2 className="h-4 w-4 text-red-300" />
-                </button>
-              </div>
+                  {/* Icon */}
+                  <div className="mb-3 text-white/90">{getIcon(link.icon)}</div>
+
+                  {/* Başlık */}
+                  <h3 className="mb-2 line-clamp-1 text-sm font-semibold text-white">
+                    {link.title}
+                  </h3>
+
+                  {/* Açıklama */}
+                  <p className="mb-3 line-clamp-2 text-xs text-white/80">
+                    {link.description}
+                  </p>
+
+                  {/* Alt satır: Link göstergesi + Click count + Sil butonu */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {/* Click Count Badge */}
+                      {showClickCount && link.clickCount !== undefined && link.clickCount > 0 && (
+                        <div className="flex items-center gap-1 text-xs text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full">
+                          <span className="text-amber-400">👆</span>
+                          {link.clickCount}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDelete(link.id)
+                      }}
+                      className="opacity-0 transition-opacity duration-200 hover:bg-red-500/30 group-hover:opacity-100 rounded p-1"
+                      title="Linki Sil"
+                      aria-label={`Sil: ${link.title}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-300" />
+                    </button>
+                  </div>
+                </>
+              )}
 
               {/* Renk bırakma görseli */}
               {colorDropTarget === index && (

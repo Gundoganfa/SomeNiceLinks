@@ -38,6 +38,9 @@ export function useLinks() {
   
   // Click counter visibility
   const [showClickCount, setShowClickCount] = useState(false)
+  
+  // Less is more mode (minimal view)
+  const [lessIsMore, setLessIsMore] = useState(false)
 
   // Conflict resolution
   const [conflictModalOpen, setConflictModalOpen] = useState(false)
@@ -324,6 +327,12 @@ export function useLinks() {
       const savedShowClickCount = localStorage.getItem('showClickCount')
       if (savedShowClickCount === 'true') {
         setShowClickCount(true)
+      }
+      
+      // Load less is more mode (default: false)
+      const savedLessIsMore = localStorage.getItem('lessIsMore')
+      if (savedLessIsMore === 'true') {
+        setLessIsMore(true)
       }
     } catch (error) {
       console.error('Preferences load error:', error)
@@ -697,6 +706,18 @@ export function useLinks() {
     }
   }
 
+  const toggleLessIsMore = () => {
+    const newValue = !lessIsMore
+    setLessIsMore(newValue)
+    try {
+      localStorage.setItem('lessIsMore', newValue.toString())
+      pushToast('success', `Minimalist görünüm ${newValue ? 'açıldı' : 'kapatıldı'}.`)
+    } catch (error) {
+      console.error('Less is more preference save error:', error)
+      pushToast('error', 'Ayar kaydedilemedi.')
+    }
+  }
+
 
   const exportLinks = () => {
     try {
@@ -1001,6 +1022,7 @@ export function useLinks() {
     draggedColor,
     mergeImport,
     showClickCount,
+    lessIsMore,
     
     // Confirm dialogs
     confirmResetOpen,
@@ -1033,6 +1055,7 @@ export function useLinks() {
     changeColor,
     changeBackgroundTheme,
     toggleClickCount,
+    toggleLessIsMore,
     exportLinks,
     importLinks,
     loadDefaults,

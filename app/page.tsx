@@ -30,6 +30,7 @@ export default function Home() {
     draggedColor,
     mergeImport,
     showClickCount,
+    lessIsMore,
     
     // Confirm dialogs
     confirmResetOpen,
@@ -61,6 +62,7 @@ export default function Home() {
     changeColor,
     changeBackgroundTheme,
     toggleClickCount,
+    toggleLessIsMore,
     exportLinks,
     importLinks,
     loadDefaults,
@@ -201,6 +203,8 @@ export default function Home() {
           changeBackgroundTheme={changeBackgroundTheme}
           showClickCount={showClickCount}
           toggleClickCount={toggleClickCount}
+          lessIsMore={lessIsMore}
+          toggleLessIsMore={toggleLessIsMore}
           exportLinks={exportLinks}
           importLinks={importLinks}
           loadDefaults={loadDefaults}
@@ -267,6 +271,7 @@ export default function Home() {
                 onColorChange={changeColor}
                 onClickTrack={incrementClickCount}
                 showClickCount={showClickCount}
+                lessIsMore={lessIsMore}
                 draggedColor={draggedColor}
               />
             </div>
